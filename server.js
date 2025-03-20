@@ -6,8 +6,11 @@ const cors = require('cors');
 const app = express();
 const PORT = 5000;
 
+// Middleware для обработки CORS
 app.use(cors());
-app.use(express.json());
+
+// Middleware для обслуживания статических файлов из корневой папки
+app.use(express.static(path.join(__dirname)));
 
 // Пример ключа шифрования
 const ENCRYPTION_KEY = 'my-secret-key';
@@ -78,6 +81,11 @@ app.post('/api/abonents', (req, res) => {
     data.abonents.push(req.body);
     saveData(data);
     res.json({ success: true });
+});
+
+// Все остальные запросы перенаправляем на index.html
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // Запуск сервера
