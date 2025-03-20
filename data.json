@@ -1,0 +1,39 @@
+{
+  "groups": [
+    {
+      "title": "Группа 1",
+      "status": "online",
+      "timeSlots": [
+        "09:00-10:00",
+        "14:00-15:00"
+      ]
+    },
+    {
+      "title": "Группа 2",
+      "status": "offline",
+      "timeSlots": [
+        "10:00-11:00",
+        "15:00-16:00"
+      ]
+    }
+  ],
+  "settings": {
+    "ip": "10.21.50.2",
+    "port": 2323,
+    "dispatcher": 1,
+    "encryptionKey": ""
+  },
+  "abonents": [
+    {
+      "id": "1",
+      "name": "Абонент 1",
+      "color": "#ff0000",
+      "icon": ""
+    },
+    {
+      "id": "1022",
+      "name": "Шурик",
+      "color": "#000000"
+    }
+  ]
+}

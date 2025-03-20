@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Диспетчерский пульт БСУ</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="overlay" id="overlay"></div>
+    
+    <div class="header">
+        <div class="logo">
+            <img src="logo.png" alt="Логотип системы">
+            <span>Диспетчерский пульт</span>
+        </div>
+        
+        <div class="header-center">
+            <div class="time-block">
+                <div id="currentTime" class="time"></div>
+                <div id="currentDate" class="date"></div>
+            </div>
+        </div>
+        <button class="theme-toggle" id="themeToggle">
+            <i class="fas fa-sun"></i>
+        </button>
+        <div class="header-controls">
+            <button id="toggleView">Показать панель</button>
+            <button id="connectBtn">Подключиться</button>
+            <button id="settingsBtn">Настройки</button>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="sidebar">
+            <button id="addAbonent">Добавить абонента</button>
+            <ul class="tree-view" id="abonentTree"></ul>
+        </div>
+
+        <div class="content-area">
+            <div id="map" class="map-container"></div>
+            <div id="dashboard" class="dashboard"></div>
+        </div>
+    </div>
+
+    <!-- Модальные окна -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <h3>Настройки подключения</h3>
+            <input type="text" id="serverIp" placeholder="IP сервера" pattern="^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$" required>
+            <input type="text" id="serverPort" placeholder="Порт" inputmode="numeric" pattern="\d*" required>
+            <select id="dispatcher">
+                <option value="1">Диспетчер 1</option>
+                <option value="2">Диспетчер 2</option>
+            </select>
+            <button onclick="saveSettings()">Сохранить</button>
+        </div>
+    </div>
+    
+    <div id="abonentModal" class="modal">
+        <div class="modal-content">
+            <h3>Добавить абонента</h3>
+            <input type="text" id="abonentId" placeholder="ID абонента" inputmode="numeric" pattern="\d*" required>
+            <input type="text" id="abonentName" placeholder="Название" required>
+            <input type="color" id="abonentColor">
+            <input type="file" id="abonentIcon" accept="image/*">
+            <button onclick="saveAbonent()">Сохранить</button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
