@@ -44,7 +44,15 @@ function initMap() {
     map = L.map('map').setView([55.751244, 37.618423], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 }
-
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/src/service-worker.js')
+        .then((registration) => {
+            console.log('Service Worker зарегистрирован:', registration);
+        })
+        .catch((error) => {
+            console.error('Ошибка регистрации Service Worker:', error);
+        });
+}
 // Обновление времени и даты
 function updateDateTime() {
     const now = new Date();
