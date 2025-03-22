@@ -4,180 +4,61 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Интерфейс БСУ</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-        }
-        input, button {
-            width: 100%;
-            padding: 8px;
-            margin-bottom: 10px;
-        }
-        .list {
-            margin-top: 20px;
-        }
-        .list-item {
-            padding: 10px;
-            border: 1px solid #ccc;
-            margin-bottom: 10px;
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <h1>Управление ретрансляторами и таймслотами</h1>
+        <h1>Управление Базовой Станцией Управления (БСУ)</h1>
         
-        <!-- Форма для добавления ретранслятора -->
-        <div class="form-group">
-            <h2>Добавить ретранслятор</h2>
-            <label for="ip">IP-адрес:</label>
-            <input type="text" id="ip" placeholder="Введите IP-адрес">
-            <label for="config">Конфигурация:</label>
-            <input type="text" id="config" placeholder="Введите конфигурацию">
-            <button onclick="addRetranslator()">Добавить</button>
+        <!-- Вкладки -->
+        <div class="tabs">
+            <button class="tab-button active" onclick="openTab('retranslators')">Ретрансляторы</button>
+            <button class="tab-button" onclick="openTab('dispatchers')">Диспетчеры</button>
+            <button class="tab-button" onclick="openTab('radioStations')">Радиостанции</button>
         </div>
 
-        <!-- Форма для добавления таймслота -->
-        <div class="form-group">
-            <h2>Добавить таймслот</h2>
-            <label for="startTime">Время начала:</label>
-            <input type="text" id="startTime" placeholder="Введите время начала">
-            <label for="endTime">Время окончания:</label>
-            <input type="text" id="endTime" placeholder="Введите время окончания">
-            <label for="frequency">Частота:</label>
-            <input type="text" id="frequency" placeholder="Введите частоту">
-            <button onclick="addTimeslot()">Добавить</button>
+        <!-- Вкладка Ретрансляторы -->
+        <div id="retranslators" class="tab-content active">
+            <h2>Ретрансляторы Kirisun DR600</h2>
+            <div class="form-group">
+                <label for="retranslatorIp">IP-адрес:</label>
+                <input type="text" id="retranslatorIp" placeholder="Введите IP-адрес">
+                <button onclick="addRetranslator()">Добавить ретранслятор</button>
+            </div>
+            <div class="list" id="retranslators-list"></div>
         </div>
 
-        <!-- Список ретрансляторов -->
-        <div class="list" id="retranslators-list">
-            <h2>Ретрансляторы</h2>
+        <!-- Вкладка Диспетчеры -->
+        <div id="dispatchers" class="tab-content">
+            <h2>Диспетчеры</h2>
+            <div class="form-group">
+                <label for="dispatcherName">Имя диспетчера:</label>
+                <input type="text" id="dispatcherName" placeholder="Введите имя">
+                <button onclick="addDispatcher()">Добавить диспетчера</button>
+            </div>
+            <div class="list" id="dispatchers-list"></div>
         </div>
 
-        <!-- Список таймслотов -->
-        <div class="list" id="timeslots-list">
-            <h2>Таймслоты</h2>
+        <!-- Вкладка Радиостанции -->
+        <div id="radioStations" class="tab-content">
+            <h2>Радиостанции</h2>
+            <div class="form-group">
+                <label for="radioStationName">Имя радиостанции:</label>
+                <input type="text" id="radioStationName" placeholder="Введите имя">
+                <button onclick="addRadioStation()">Добавить радиостанцию</button>
+            </div>
+            <div class="list" id="radioStations-list"></div>
         </div>
     </div>
 
-    <script>
-        // Функция для добавления ретранслятора
-        async function addRetranslator() {
-            const ip = document.getElementById('ip').value;
-            const config = document.getElementById('config').value;
-            const response = await fetch('/api/bsu/retranslators', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ ip, config }),
-            });
-            const result = await response.json();
-            if (result.success) {
-                alert('Ретранслятор добавлен!');
-                loadRetranslators();
-            }
-        }
+    <!-- Модальное окно для редактирования -->
+    <div class="modal-overlay" id="editModalOverlay"></div>
+    <div class="modal" id="editModal">
+        <h2 id="editModalTitle"></h2>
+        <div id="editModalContent"></div>
+        <button onclick="closeEditModal()">Закрыть</button>
+    </div>
 
-        // Функция для добавления таймслота
-        async function addTimeslot() {
-            const startTime = document.getElementById('startTime').value;
-            const endTime = document.getElementById('endTime').value;
-            const frequency = document.getElementById('frequency').value;
-            const response = await fetch('/api/bsu/timeslots', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ startTime, endTime, frequency }),
-            });
-            const result = await response.json();
-            if (result.success) {
-                alert('Таймслот добавлен!');
-                loadTimeslots();
-            }
-        }
-
-        // Функция для загрузки списка ретрансляторов
-        async function loadRetranslators() {
-            const response = await fetch('/api/bsu/data');
-            const data = await response.json();
-            const list = document.getElementById('retranslators-list');
-            list.innerHTML = '<h2>Ретрансляторы</h2>';
-            data.retranslators.forEach(retranslator => {
-                const item = document.createElement('div');
-                item.className = 'list-item';
-                item.innerHTML = `
-                    <p><strong>ID:</strong> ${retranslator.id}</p>
-                    <p><strong>IP:</strong> ${retranslator.ip}</p>
-                    <p><strong>Конфигурация:</strong> ${retranslator.config}</p>
-                    <button onclick="deleteRetranslator('${retranslator.id}')">Удалить</button>
-                `;
-                list.appendChild(item);
-            });
-        }
-
-        // Функция для загрузки списка таймслотов
-        async function loadTimeslots() {
-            const response = await fetch('/api/bsu/data');
-            const data = await response.json();
-            const list = document.getElementById('timeslots-list');
-            list.innerHTML = '<h2>Таймслоты</h2>';
-            data.timeslots.forEach(timeslot => {
-                const item = document.createElement('div');
-                item.className = 'list-item';
-                item.innerHTML = `
-                    <p><strong>ID:</strong> ${timeslot.id}</p>
-                    <p><strong>Время начала:</strong> ${timeslot.startTime}</p>
-                    <p><strong>Время окончания:</strong> ${timeslot.endTime}</p>
-                    <p><strong>Частота:</strong> ${timeslot.frequency}</p>
-                    <button onclick="deleteTimeslot('${timeslot.id}')">Удалить</button>
-                `;
-                list.appendChild(item);
-            });
-        }
-
-        // Функция для удаления ретранслятора
-        async function deleteRetranslator(id) {
-            const response = await fetch(`/api/bsu/retranslators/${id}`, {
-                method: 'DELETE',
-            });
-            const result = await response.json();
-            if (result.success) {
-                alert('Ретранслятор удален!');
-                loadRetranslators();
-            }
-        }
-
-        // Функция для удаления таймслота
-        async function deleteTimeslot(id) {
-            const response = await fetch(`/api/bsu/timeslots/${id}`, {
-                method: 'DELETE',
-            });
-            const result = await response.json();
-            if (result.success) {
-                alert('Таймслот удален!');
-                loadTimeslots();
-            }
-        }
-
-        // Загрузка данных при загрузке страницы
-        window.onload = () => {
-            loadRetranslators();
-            loadTimeslots();
-        };
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
