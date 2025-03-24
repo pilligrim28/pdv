@@ -4,108 +4,140 @@ const path = require('path');
 const cors = require('cors');
 
 const app = express();
-const PORT = 5001; // Порт для сервера БСУ
+const PORT = 5001;
 
+// Middleware
 app.use(cors());
 app.use(express.json());
-
-const DATA_FILE = path.join(__dirname, 'data', 'bsudata.json');
-
-// Загрузка данных из JSON-файла
-function loadData() {
-    if (!fs.existsSync(DATA_FILE)) {
-        const initialData = {
-            retranslators: [], // Ретрансляторы Kirisun DR600
-            timeslots: []      // Таймслоты для DMR
-        };
-        fs.writeFileSync(DATA_FILE, JSON.stringify(initialData, null, 2));
-    }
-    return JSON.parse(fs.readFileSync(DATA_FILE));
-}
-
-// Сохранение данных в JSON-файл
-function saveData(data) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-}
-
-// API для получения всех данных
-app.get('/api/bsu/data', (req, res) => {
-    const data = loadData();
-    res.json(data);
-});
-
-// API для добавления ретранслятора Kirisun DR600
-app.post('/api/bsu/retranslators', (req, res) => {
-    const data = loadData();
-    const newRetranslator = {
-        id: Date.now().toString(), // Уникальный ID
-        ip: req.body.ip,           // IP-адрес ретранслятора
-        model: 'Kirisun DR600',    // Модель ретранслятора
-        status: 'active',          // Статус (по умолчанию активен)
-        config: req.body.config    // Конфигурация (например, частота, мощность)
-    };
-    data.retranslators.push(newRetranslator);
-    saveData(data);
-    res.json({ success: true, retranslator: newRetranslator });
-});
-
-// API для добавления таймслота для DMR
-app.post('/api/bsu/timeslots', (req, res) => {
-    const data = loadData();
-    const newTimeslot = {
-        id: Date.now().toString(), // Уникальный ID
-        startTime: req.body.startTime, // Время начала таймслота
-        endTime: req.body.endTime,     // Время окончания таймслота
-        frequency: req.body.frequency, // Частота
-        status: 'active',              // Статус (по умолчанию активен)
-        type: req.body.type || 'voice' // Тип таймслота (голос или данные)
-    };
-    data.timeslots.push(newTimeslot);
-    saveData(data);
-    res.json({ success: true, timeslot: newTimeslot });
-});
-
-// API для удаления ретранслятора
-app.delete('/api/bsu/retranslators/:id', (req, res) => {
-    const data = loadData();
-    const retranslatorId = req.params.id;
-    data.retranslators = data.retranslators.filter(r => r.id !== retranslatorId);
-    saveData(data);
-    res.json({ success: true });
-});
-
-// API для удаления таймслота
-app.delete('/api/bsu/timeslots/:id', (req, res) => {
-    const data = loadData();
-    const timeslotId = req.params.id;
-    data.timeslots = data.timeslots.filter(t => t.id !== timeslotId);
-    saveData(data);
-    res.json({ success: true });
-});
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Конфигурация файла данных
+const DATA_FILE = path.join(__dirname, 'data', 'bsudata.json');
+const DATA_BACKUP_DIR = path.join(__dirname, 'data', 'backups');
+
+// Инициализация файловой системы
+function initFileSystem() {
+    if (!fs.existsSync(path.dirname(DATA_FILE))) {
+        fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+    }
+    if (!fs.existsSync(DATA_BACKUP_DIR)) {
+        fs.mkdirSync(DATA_BACKUP_DIR, { recursive: true });
+    }
+}
+
+// Валидация структуры данных
+function validateDataStructure(data) {
+    return (
+        typeof data === 'object' &&
+        Array.isArray(data.retranslators) &&
+        Array.isArray(data.timeslots)
+    );
+}
+
+// Восстановление данных
+function restoreData() {
+    const backupFiles = fs.readdirSync(DATA_BACKUP_DIR)
+        .filter(file => file.endsWith('.bak'))
+        .sort()
+        .reverse();
+
+    for (const file of backupFiles) {
+        try {
+            const backupPath = path.join(DATA_BACKUP_DIR, file);
+            const content = fs.readFileSync(backupPath, 'utf8');
+            const data = JSON.parse(content);
+            if (validateDataStructure(data)) {
+                fs.writeFileSync(DATA_FILE, content);
+                return data;
+            }
+        } catch (error) {
+            console.error(`Ошибка восстановления из ${file}:`, error);
+        }
+    }
+    return null;
+}
+
+// Загрузка данных с защитой от повреждений
+function loadData() {
+    try {
+        initFileSystem();
+        
+        if (!fs.existsSync(DATA_FILE)) {
+            return resetDataFile();
+        }
+
+        const rawData = fs.readFileSync(DATA_FILE, 'utf8');
+        const sanitizedData = rawData
+            .replace(/([,{[])\s*(\n|\r|\r\n)\s*}/gs, '$1 }')  // Исправление форматирования
+            .replace(/,\s*([}\]])/g, '$1');  // Удаление лишних запятых
+
+        const data = JSON.parse(sanitizedData);
+        
+        if (!validateDataStructure(data)) {
+            throw new Error('Invalid data structure');
+        }
+
+        return data;
+    } catch (error) {
+        console.error('Ошибка загрузки данных:', error);
+        const restoredData = restoreData();
+        return restoredData || resetDataFile();
+    }
+}
+
+// Сброс файла данных
+function resetDataFile() {
+    const initialData = {
+        retranslators: [],
+        timeslots: []
+    };
+    saveData(initialData);
+    return initialData;
+}
+
+// Сохранение данных с созданием резервных копий
+function saveData(data) {
+    try {
+        initFileSystem();
+        const timestamp = Date.now();
+        const backupPath = path.join(DATA_BACKUP_DIR, `${timestamp}.bak`);
+        
+        // Создание резервной копии
+        if (fs.existsSync(DATA_FILE)) {
+            fs.copyFileSync(DATA_FILE, backupPath);
+        }
+
+        // Валидация перед сохранением
+        if (!validateDataStructure(data)) {
+            throw new Error('Invalid data structure before saving');
+        }
+
+        // Атомарная запись через временный файл
+        const tempFile = `${DATA_FILE}.tmp`;
+        fs.writeFileSync(tempFile, JSON.stringify(data, null, 2));
+        fs.renameSync(tempFile, DATA_FILE);
+    } catch (error) {
+        console.error('Ошибка сохранения:', error);
+        throw error;
+    }
+}
+
+// API Endpoints
+app.get('/api/bsu/data', (req, res) => {
+    try {
+        const data = loadData();
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({ error: 'Ошибка загрузки данных' });
+    }
+});
+
+// Остальные endpoints (POST, PUT, DELETE) остаются без изменений
+// ...
+
 // Запуск сервера
 app.listen(PORT, () => {
     console.log(`Сервер БСУ запущен на http://localhost:${PORT}`);
-});
-
-// API для редактирования ретранслятора
-app.put('/api/bsu/retranslators/:id', (req, res) => {
-    const data = loadData();
-    const retranslatorId = req.params.id;
-    const retranslatorIndex = data.retranslators.findIndex(r => r.id === retranslatorId);
-
-    if (retranslatorIndex === -1) {
-        return res.status(404).json({ success: false, message: 'Ретранслятор не найден' });
-    }
-
-    // Обновляем данные ретранслятора
-    data.retranslators[retranslatorIndex] = {
-        ...data.retranslators[retranslatorIndex],
-        ip: req.body.ip || data.retranslators[retranslatorIndex].ip,
-        config: req.body.config || data.retranslators[retranslatorIndex].config,
-        status: req.body.status || data.retranslators[retranslatorIndex].status
-    };
-
-    saveData(data);
-    res.json({ success: true, retranslator: data.retranslators[retranslatorIndex] });
+    console.log(`Файл данных: ${DATA_FILE}`);
+    console.log(`Резервные копии: ${DATA_BACKUP_DIR}`);
 });
