@@ -1,4 +1,13 @@
 {
-  "retranslators": ["10.21.10.175"],
-  "timeslots": [2]
+  "ip": "10.21.10.175",
+  "subnet": "255.255.255.0",
+  "frequency": "435.125 МГц",
+  "power": "10 Вт",
+  "timeslots": {
+    "slot1": "Голос",
+    "slot2": "Данные"
+  },
+  "encryption": "AES-256",
+  "groups": ["Группа 1", "Группа 2"],
+  "adminPassword": "securePassword123"
 }
