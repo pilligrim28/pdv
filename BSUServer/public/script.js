@@ -1,163 +1,119 @@
-let currentEditId = null;
-let currentEditType = null;
-
-// Функция для переключения вкладок
-function openTab(tabName) {
-    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-    document.querySelectorAll('.tab-button').forEach(button => button.classList.remove('active'));
-    document.getElementById(tabName).classList.add('active');
-    document.querySelector(`button[onclick="openTab('${tabName}')"]`).classList.add('active');
-}
-
-// Функция для загрузки данных
-async function loadData() {
-    const response = await fetch('/api/bsu/data');
-    return await response.json();
-}
-
-// Функция для отображения ретрансляторов
-async function loadRetranslators() {
-    const data = await loadData();
-    const list = document.getElementById('retranslators-list');
-    list.innerHTML = '<h2>Ретрансляторы</h2>';
-    data.retranslators.forEach(retranslator => {
-        const item = document.createElement('div');
-        item.className = 'list-item';
-        item.innerHTML = `
-            <p><strong>ID:</strong> ${retranslator.id}</p>
-            <p><strong>IP:</strong> ${retranslator.ip}</p>
-            <p><strong>Слот 1:</strong> ${retranslator.slot1.join(', ')}</p>
-            <p><strong>Слот 2:</strong> ${retranslator.slot2.join(', ')}</p>
-            <button onclick="openEditModal('retranslator', '${retranslator.id}', '${retranslator.ip}', '${JSON.stringify(retranslator.slot1)}', '${JSON.stringify(retranslator.slot2)}')">Редактировать</button>
-            <button onclick="deleteRetranslator('${retranslator.id}')">Удалить</button>
-        `;
-        list.appendChild(item);
-    });
-}
-
-// Функция для отображения диспетчеров
-async function loadDispatchers() {
-    const data = await loadData();
-    const list = document.getElementById('dispatchers-list');
-    list.innerHTML = '<h2>Диспетчеры</h2>';
-    data.dispatchers.forEach(dispatcher => {
-        const item = document.createElement('div');
-        item.className = 'list-item';
-        item.innerHTML = `
-            <p><strong>ID:</strong> ${dispatcher.id}</p>
-            <p><strong>Имя:</strong> ${dispatcher.name}</p>
-            <p><strong>Группы:</strong> ${dispatcher.groups.join(', ')}</p>
-            <button onclick="openEditModal('dispatcher', '${dispatcher.id}', '${dispatcher.name}', '${JSON.stringify(dispatcher.groups)}')">Редактировать</button>
-            <button onclick="deleteDispatcher('${dispatcher.id}')">Удалить</button>
-        `;
-        list.appendChild(item);
-    });
-}
-
-// Функция для отображения радиостанций
-async function loadRadioStations() {
-    const data = await loadData();
-    const list = document.getElementById('radioStations-list');
-    list.innerHTML = '<h2>Радиостанции</h2>';
-    data.radioStations.forEach(radioStation => {
-        const item = document.createElement('div');
-        item.className = 'list-item';
-        item.innerHTML = `
-            <p><strong>ID:</strong> ${radioStation.id}</p>
-            <p><strong>Имя:</strong> ${radioStation.name}</p>
-            <p><strong>Группы:</strong> ${radioStation.groups.join(', ')}</p>
-            <button onclick="openEditModal('radioStation', '${radioStation.id}', '${radioStation.name}', '${JSON.stringify(radioStation.groups)}')">Редактировать</button>
-            <button onclick="deleteRadioStation('${radioStation.id}')">Удалить</button>
-        `;
-        list.appendChild(item);
-    });
-}
-
-// Функция для открытия модального окна редактирования
-function openEditModal(type, id, name, slot1, slot2) {
-    currentEditId = id;
-    currentEditType = type;
-    document.getElementById('editModalTitle').innerText = `Редактировать ${type === 'retranslator' ? 'ретранслятор' : type === 'dispatcher' ? 'диспетчера' : 'радиостанцию'}`;
-    let content = '';
-
-    if (type === 'retranslator') {
-        content = `
-            <label for="editIp">IP-адрес:</label>
-            <input type="text" id="editIp" value="${name}">
-            <label for="editSlot1">Слот 1 (группы):</label>
-            <input type="text" id="editSlot1" value="${slot1}">
-            <label for="editSlot2">Слот 2 (группы):</label>
-            <input type="text" id="editSlot2" value="${slot2}">
-            <button onclick="saveEditedItem()">Сохранить</button>
-        `;
-    } else {
-        content = `
-            <label for="editName">Имя:</label>
-            <input type="text" id="editName" value="${name}">
-            <label for="editGroups">Группы:</label>
-            <input type="text" id="editGroups" value="${slot1}">
-            <button onclick="saveEditedItem()">Сохранить</button>
-        `;
+class BSUSystem {
+    constructor() {
+        this.initEventListeners();
+        this.loadAllData();
     }
 
-    document.getElementById('editModalContent').innerHTML = content;
-    document.getElementById('editModal').style.display = 'block';
-    document.getElementById('editModalOverlay').style.display = 'block';
-}
+    initEventListeners() {
+        // Переключение вкладок
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.addEventListener('click', (e) => this.switchTab(e.target.dataset.tab));
+        });
 
-// Функция для закрытия модального окна
-function closeEditModal() {
-    document.getElementById('editModal').style.display = 'none';
-    document.getElementById('editModalOverlay').style.display = 'none';
-}
-
-// Функция для сохранения изменений
-async function saveEditedItem() {
-    let url = '';
-    let body = {};
-
-    if (currentEditType === 'retranslator') {
-        url = `/api/bsu/retranslators/${currentEditId}`;
-        body = {
-            ip: document.getElementById('editIp').value,
-            slot1: JSON.parse(document.getElementById('editSlot1').value),
-            slot2: JSON.parse(document.getElementById('editSlot2').value)
-        };
-    } else if (currentEditType === 'dispatcher') {
-        url = `/api/bsu/dispatchers/${currentEditId}`;
-        body = {
-            name: document.getElementById('editName').value,
-            groups: JSON.parse(document.getElementById('editGroups').value)
-        };
-    } else if (currentEditType === 'radioStation') {
-        url = `/api/bsu/radioStations/${currentEditId}`;
-        body = {
-            name: document.getElementById('editName').value,
-            groups: JSON.parse(document.getElementById('editGroups').value)
-        };
+        // Обработчики добавления
+        document.getElementById('addRetranslatorBtn').addEventListener('click', () => this.addItem('retranslator'));
+        document.getElementById('addDispatcherBtn').addEventListener('click', () => this.addItem('dispatcher'));
+        document.getElementById('addRadioStationBtn').addEventListener('click', () => this.addItem('radioStation'));
     }
 
-    const response = await fetch(url, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-    });
+    async loadAllData() {
+        try {
+            const response = await fetch('/api/bsu/data');
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            
+            const data = await response.json();
+            
+            this.renderList('retranslators-list', data.retranslators || [], this.renderRetranslator);
+            this.renderList('dispatchers-list', data.dispatchers || [], this.renderDispatcher);
+            this.renderList('radioStations-list', data.radioStations || [], this.renderRadioStation);
+        } catch (error) {
+            this.showError('Ошибка загрузки данных:', error);
+        }
+    }
 
-    const result = await response.json();
-    if (result.success) {
-        alert('Изменения сохранены!');
-        closeEditModal();
-        if (currentEditType === 'retranslator') loadRetranslators();
-        else if (currentEditType === 'dispatcher') loadDispatchers();
-        else if (currentEditType === 'radioStation') loadRadioStations();
+    async addItem(type) {
+        try {
+            const inputs = {
+                retranslator: ['retranslatorIp', 'retranslatorConfig'],
+                dispatcher: ['dispatcherName'],
+                radioStation: ['radioStationName']
+            }[type];
+
+            const body = {};
+            inputs.forEach(id => {
+                const value = document.getElementById(id).value;
+                if (!value) throw new Error('Заполните все поля');
+                body[id.replace(type, '').toLowerCase()] = value;
+            });
+
+            const endpointMap = {
+                retranslator: '/api/bsu/retranslators',
+                dispatcher: '/api/bsu/dispatchers',
+                radioStation: '/api/bsu/radioStations'
+            };
+
+            const response = await fetch(endpointMap[type], {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+            inputs.forEach(id => (document.getElementById(id).value = ''));
+            this.loadAllData();
+        } catch (error) {
+            this.showError(`Ошибка добавления ${type}:`, error);
+        }
+    }
+
+    renderList(containerId, items, renderFunction) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        items.forEach(item => container.appendChild(renderFunction(item)));
+    }
+
+    renderRetranslator = (item) => this.createListItem(item, `
+        <p>IP: ${item.ip}</p>
+        <p>Конфигурация: ${item.config}</p>
+    `);
+
+    renderDispatcher = (item) => this.createListItem(item, `
+        <p>Имя: ${item.name}</p>
+    `);
+
+    renderRadioStation = (item) => this.createListItem(item, `
+        <p>Идентификатор: ${item.name}</p>
+    `);
+
+    createListItem(item, content) {
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        div.innerHTML = `
+            <div class="item-header">
+                <span class="item-id">ID: ${item.id}</span>
+                <div class="item-actions">
+                    <button class="delete-btn" data-id="${item.id}">Удалить</button>
+                </div>
+            </div>
+            <div class="item-content">${content}</div>
+        `;
+        return div;
+    }
+
+    switchTab(tabName) {
+        document.querySelectorAll('.tab-content, .tab-button').forEach(el => {
+            el.classList.remove('active');
+        });
+        document.getElementById(tabName).classList.add('active');
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    }
+
+    showError(message, error) {
+        console.error(message, error);
+        alert(`${message}\n${error.message}`);
     }
 }
 
-// Загрузка данных при загрузке страницы
-window.onload = () => {
-    loadRetranslators();
-    loadDispatchers();
-    loadRadioStations();
-};
+// Инициализация приложения
+document.addEventListener('DOMContentLoaded', () => new BSUSystem());

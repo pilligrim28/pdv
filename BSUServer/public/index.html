@@ -3,60 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Интерфейс БСУ</title>
+    <title>Управление БСУ</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <h1>Управление Базовой Станцией Управления (БСУ)</h1>
+        <h1>Базовая Станция Управления Kirisun DR600</h1>
         
-        <!-- Вкладки -->
         <div class="tabs">
-            <button class="tab-button active" onclick="openTab('retranslators')">Ретрансляторы</button>
-            <button class="tab-button" onclick="openTab('dispatchers')">Диспетчеры</button>
-            <button class="tab-button" onclick="openTab('radioStations')">Радиостанции</button>
+            <button class="tab-button active" data-tab="retranslators">Ретрансляторы</button>
+            <button class="tab-button" data-tab="dispatchers">Диспетчеры</button>
+            <button class="tab-button" data-tab="radioStations">Радиостанции</button>
         </div>
 
-        <!-- Вкладка Ретрансляторы -->
         <div id="retranslators" class="tab-content active">
-            <h2>Ретрансляторы Kirisun DR600</h2>
-            <div class="form-group">
-                <label for="retranslatorIp">IP-адрес:</label>
-                <input type="text" id="retranslatorIp" placeholder="Введите IP-адрес">
-                <button onclick="addRetranslator()">Добавить ретранслятор</button>
+            <div class="form-card">
+                <div class="input-group">
+                    <label>IP-адрес: <input type="text" id="retranslatorIp"></label>
+                </div>
+                <div class="input-group">
+                    <label>Конфигурация: <input type="text" id="retranslatorConfig"></label>
+                </div>
+                <button id="addRetranslatorBtn" class="primary-btn">Добавить</button>
             </div>
-            <div class="list" id="retranslators-list"></div>
+            <div id="retranslators-list" class="items-list"></div>
         </div>
 
-        <!-- Вкладка Диспетчеры -->
         <div id="dispatchers" class="tab-content">
-            <h2>Диспетчеры</h2>
-            <div class="form-group">
-                <label for="dispatcherName">Имя диспетчера:</label>
-                <input type="text" id="dispatcherName" placeholder="Введите имя">
-                <button onclick="addDispatcher()">Добавить диспетчера</button>
+            <div class="form-card">
+                <div class="input-group">
+                    <label>Имя диспетчера: <input type="text" id="dispatcherName"></label>
+                </div>
+                <button id="addDispatcherBtn" class="primary-btn">Добавить</button>
             </div>
-            <div class="list" id="dispatchers-list"></div>
+            <div id="dispatchers-list" class="items-list"></div>
         </div>
 
-        <!-- Вкладка Радиостанции -->
         <div id="radioStations" class="tab-content">
-            <h2>Радиостанции</h2>
-            <div class="form-group">
-                <label for="radioStationName">Имя радиостанции:</label>
-                <input type="text" id="radioStationName" placeholder="Введите имя">
-                <button onclick="addRadioStation()">Добавить радиостанцию</button>
+            <div class="form-card">
+                <div class="input-group">
+                    <label>Идентификатор: <input type="text" id="radioStationName"></label>
+                </div>
+                <button id="addRadioStationBtn" class="primary-btn">Добавить</button>
             </div>
-            <div class="list" id="radioStations-list"></div>
+            <div id="radioStations-list" class="items-list"></div>
         </div>
-    </div>
-
-    <!-- Модальное окно для редактирования -->
-    <div class="modal-overlay" id="editModalOverlay"></div>
-    <div class="modal" id="editModal">
-        <h2 id="editModalTitle"></h2>
-        <div id="editModalContent"></div>
-        <button onclick="closeEditModal()">Закрыть</button>
     </div>
 
     <script src="script.js"></script>
