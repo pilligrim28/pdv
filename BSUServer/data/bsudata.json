@@ -1,4 +1,5 @@
 {
+<<<<<<< HEAD
   "retranslators": [
     {
       "id": "123456789",
@@ -11,4 +12,17 @@
   ],
   "dispatchers": [],
   "radioStations": []
+=======
+  "ip": "10.21.10.175",
+  "subnet": "255.255.255.0",
+  "frequency": "435.125 МГц",
+  "power": "10 Вт",
+  "timeslots": {
+    "slot1": "Голос",
+    "slot2": "Данные"
+  },
+  "encryption": "AES-256",
+  "groups": ["Группа 1", "Группа 2"],
+  "adminPassword": "securePassword123"
+>>>>>>> b368a855ad307b1d7d9ee6bce981c50b57dd5d16
 }
