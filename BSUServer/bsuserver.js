@@ -57,6 +57,41 @@ function handlePostRequest(entity) {
     };
 }
 
+// Добавляем обработчик для получения конфигурации по IP
+app.get('/api/bsu/retranslators/:ip/config', (req, res) => {
+    const ip = req.params.ip;
+    
+    // Эмуляция запроса к реальному устройству
+    const mockDeviceConfig = {
+        ip: ip,
+        slots: {
+            slot1: "Голосовой канал 1",
+            slot2: "Данные канал 2"
+        },
+        frequency: "435.125 МГц",
+        power: "10W"
+    };
+
+    res.json(mockDeviceConfig);
+});
+
+// Обновляем модель ретранслятора
+app.post('/api/bsu/retranslators', (req, res) => {
+    const newRetranslator = {
+        id: Date.now().toString(),
+        ip: req.body.ip,
+        slots: req.body.slots || {
+            slot1: "Группа 1",
+            slot2: "Группа 2" 
+        },
+        config: req.body.config
+    };
+    
+    // Сохранение в файл
+    saveToFile(newRetranslator);
+    res.status(201).json(newRetranslator);
+});
+
 app.post('/api/bsu/retranslators', handlePostRequest('retranslators'));
 app.post('/api/bsu/dispatchers', handlePostRequest('dispatchers'));
 app.post('/api/bsu/radioStations', handlePostRequest('radioStation'));
