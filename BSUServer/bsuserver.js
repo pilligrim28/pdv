@@ -18,7 +18,7 @@ function initData() {
             retranslators: [],
             dispatchers: [],
             radioStations: []
-        }));
+        }, null, 2));
     }
 }
 
@@ -29,8 +29,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // API Endpoints
 app.get('/api/bsu/data', (req, res) => {
-    initData();
     try {
+        initData();
         const data = JSON.parse(fs.readFileSync(DATA_FILE));
         res.json(data);
     } catch (error) {
@@ -38,28 +38,48 @@ app.get('/api/bsu/data', (req, res) => {
     }
 });
 
-function handlePostRequest(entity) {
-    return (req, res) => {
-        initData();
-        try {
-            const data = JSON.parse(fs.readFileSync(DATA_FILE));
-            const newItem = {
-                id: Date.now().toString(),
-                ...req.body,
-                status: 'active'
-            };
-            data[`${entity}s`].push(newItem);
-            fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-            res.status(201).json(newItem);
-        } catch (error) {
-            res.status(500).json({ error: 'Ошибка сохранения данных' });
-        }
+// Получение конфигурации по IP
+app.get('/api/bsu/retranslators/:ip/config', (req, res) => {
+    const ip = req.params.ip;
+    
+    // Эмуляция запроса к реальному устройству Kirisun DR600
+    const mockConfig = {
+        status: 'online',
+        ip: ip,
+        model: 'DR600',
+        slots: {
+            slot1: { type: 'voice', group: 'Группа 1', frequency: '435.125 МГц' },
+            slot2: { type: 'data', group: 'Группа 2', frequency: '435.625 МГц' }
+        },
+        power: '10W',
+        firmware: 'v2.5.3'
     };
-}
+    
+    res.json(mockConfig);
+});
 
-app.post('/api/bsu/retranslators', handlePostRequest('retranslators'));
-app.post('/api/bsu/dispatchers', handlePostRequest('dispatchers'));
-app.post('/api/bsu/radioStations', handlePostRequest('radioStation'));
+// Добавление ретранслятора
+app.post('/api/bsu/retranslators', (req, res) => {
+    try {
+        initData();
+        const data = JSON.parse(fs.readFileSync(DATA_FILE));
+        
+        const newRetranslator = {
+            id: Date.now().toString(),
+            ip: req.body.ip,
+            slots: req.body.slots,
+            config: req.body.config,
+            lastUpdated: new Date().toISOString()
+        };
+        
+        data.retranslators.push(newRetranslator);
+        fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+        
+        res.status(201).json(newRetranslator);
+    } catch (error) {
+        res.status(500).json({ error: 'Ошибка сохранения' });
+    }
+});
 
 app.listen(PORT, () => {
     console.log(`Сервер запущен на http://localhost:${PORT}`);

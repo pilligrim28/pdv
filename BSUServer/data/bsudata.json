@@ -1,28 +1,42 @@
 {
-<<<<<<< HEAD
   "retranslators": [
     {
-      "id": "123456789",
+      "id": "1742965428671",
       "ip": "127.0.0.1",
-      "model": "Kirisun DR600",
-      "status": "active",
-      "slot1": [],
-      "slot2": []
+      "slots": {
+        "slot1": {
+          "type": "voice",
+          "group": "Группа 1",
+          "frequency": "435.125 МГц"
+        },
+        "slot2": {
+          "type": "data",
+          "group": "Группа 2",
+          "frequency": "435.625 МГц"
+        }
+      },
+      "config": {
+        "status": "online",
+        "ip": "127.0.0.1",
+        "model": "DR600",
+        "slots": {
+          "slot1": {
+            "type": "voice",
+            "group": "Группа 1",
+            "frequency": "435.125 МГц"
+          },
+          "slot2": {
+            "type": "data",
+            "group": "Группа 2",
+            "frequency": "435.625 МГц"
+          }
+        },
+        "power": "10W",
+        "firmware": "v2.5.3"
+      },
+      "lastUpdated": "2025-03-26T05:03:48.671Z"
     }
   ],
   "dispatchers": [],
   "radioStations": []
-=======
-  "ip": "10.21.10.175",
-  "subnet": "255.255.255.0",
-  "frequency": "435.125 МГц",
-  "power": "10 Вт",
-  "timeslots": {
-    "slot1": "Голос",
-    "slot2": "Данные"
-  },
-  "encryption": "AES-256",
-  "groups": ["Группа 1", "Группа 2"],
-  "adminPassword": "securePassword123"
->>>>>>> b368a855ad307b1d7d9ee6bce981c50b57dd5d16
 }
