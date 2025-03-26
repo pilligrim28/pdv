@@ -111,6 +111,7 @@ function initMap() {
 }
 
 // app.js (исправленная функция connectToServer)
+// app.js (исправленная функция connectToServer)
 async function connectToServer() {
     try {
         // Закрываем предыдущее соединение
@@ -119,7 +120,7 @@ async function connectToServer() {
         }
 
         // Проверяем валидность IP
-        if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(settings.ip)) {
+        if (!/^(?:\d{1,3}\.){3}\d{1,3}$/.test(settings.ip)) {
             throw new Error('Неверный формат IP-адреса');
         }
 
@@ -128,36 +129,38 @@ async function connectToServer() {
         // Создаем новое соединение
         connection = new WebSocket(`ws://${settings.ip}:${settings.port}`);
 
-        // Таймаут подключения (10 секунд)
+        // Таймаут подключения (15 секунд)
         const connectionTimeout = setTimeout(() => {
-            if (connection.readyState !== WebSocket.OPEN) {
+            if (connection.readyState === WebSocket.CONNECTING) {
                 connection.close();
-                throw new Error('Сервер не отвечает');
+                throw new Error('Сервер не отвежает. Проверьте:\n1. Запущен ли сервер\n2. Настройки брандмауэра');
             }
-        }, 10000);
+        }, 15000);
 
         // Обработчики событий
         connection.onopen = () => {
             clearTimeout(connectionTimeout);
             console.log('Подключение установлено!');
             updateConnectionStatus('connected', 'Подключено');
+            // Тестовое сообщение
+            connection.send(JSON.stringify({ type: 'handshake' }));
         };
 
         connection.onerror = (error) => {
             clearTimeout(connectionTimeout);
             console.error('Ошибка подключения:', error);
             updateConnectionStatus('error', 'Ошибка');
-            alert('Проверьте:\n1. Запущен ли сервер\n2. Корректность IP/порта\n3. Настройки брандмауэра');
+            alert(`Ошибка: ${error.message || 'Проверьте сетевые настройки'}`);
         };
 
-        connection.onclose = () => {
+        connection.onclose = (event) => {
             clearTimeout(connectionTimeout);
-            console.log('Соединение закрыто');
+            console.log('Соединение закрыто:', event.code, event.reason);
             updateConnectionStatus('disconnected', 'Отключено');
         };
 
     } catch (error) {
-        console.error('Ошибка:', error);
+        console.error('Критическая ошибка:', error);
         alert(`Ошибка подключения: ${error.message}`);
     }
 }
