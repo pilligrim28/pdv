@@ -3,50 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Управление БСУ</title>
+    <title>Управление БСУ Kirisun DR600</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <h1>Базовая Станция Управления Kirisun DR600</h1>
+        <h1>Управление ретрансляторами Kirisun DR600</h1>
         
         <div class="tabs">
             <button class="tab-button active" data-tab="retranslators">Ретрансляторы</button>
             <button class="tab-button" data-tab="dispatchers">Диспетчеры</button>
-            <button class="tab-button" data-tab="radioStations">Радиостанции</button>
         </div>
 
         <div id="retranslators" class="tab-content active">
-            <div class="form-card">
+            <div class="config-form">
+                <h2>Добавить ретранслятор</h2>
                 <div class="input-group">
-                    <label>IP-адрес: <input type="text" id="retranslatorIp"></label>
+                    <label>IP адрес:</label>
+                    <input type="text" id="retranslatorIp" placeholder="192.168.1.100">
+                    <button id="fetchConfigBtn">Получить конфигурацию</button>
                 </div>
-                <div class="input-group">
-                    <label>Конфигурация: <input type="text" id="retranslatorConfig"></label>
+                
+                <div class="slot-config">
+                    <div class="slot-input">
+                        <label>Слот 1 (Голос):</label>
+                        <input type="text" id="slot1Group" readonly>
+                    </div>
+                    <div class="slot-input">
+                        <label>Слот 2 (Данные):</label>
+                        <input type="text" id="slot2Group" readonly>
+                    </div>
                 </div>
-                <button id="addRetranslatorBtn" class="primary-btn">Добавить</button>
+                
+                <button id="addRetranslatorBtn" disabled>Добавить ретранслятор</button>
+                <textarea id="retranslatorConfig" readonly></textarea>
             </div>
-            <div id="retranslators-list" class="items-list"></div>
+            
+            <div id="retranslators-list" class="devices-list"></div>
         </div>
 
         <div id="dispatchers" class="tab-content">
-            <div class="form-card">
-                <div class="input-group">
-                    <label>Имя диспетчера: <input type="text" id="dispatcherName"></label>
-                </div>
-                <button id="addDispatcherBtn" class="primary-btn">Добавить</button>
-            </div>
-            <div id="dispatchers-list" class="items-list"></div>
-        </div>
-
-        <div id="radioStations" class="tab-content">
-            <div class="form-card">
-                <div class="input-group">
-                    <label>Идентификатор: <input type="text" id="radioStationName"></label>
-                </div>
-                <button id="addRadioStationBtn" class="primary-btn">Добавить</button>
-            </div>
-            <div id="radioStations-list" class="items-list"></div>
+            <!-- Интерфейс для диспетчеров -->
         </div>
     </div>
 

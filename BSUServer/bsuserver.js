@@ -18,7 +18,7 @@ function initData() {
             retranslators: [],
             dispatchers: [],
             radioStations: []
-        }));
+        }, null, 2));
     }
 }
 
@@ -29,8 +29,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // API Endpoints
 app.get('/api/bsu/data', (req, res) => {
-    initData();
     try {
+        initData();
         const data = JSON.parse(fs.readFileSync(DATA_FILE));
         res.json(data);
     } catch (error) {
@@ -38,8 +38,29 @@ app.get('/api/bsu/data', (req, res) => {
     }
 });
 
-function handlePostRequest(entity) {
-    return (req, res) => {
+// Получение конфигурации по IP
+app.get('/api/bsu/retranslators/:ip/config', (req, res) => {
+    const ip = req.params.ip;
+    
+    // Эмуляция запроса к реальному устройству Kirisun DR600
+    const mockConfig = {
+        status: 'online',
+        ip: ip,
+        model: 'DR600',
+        slots: {
+            slot1: { type: 'voice', group: 'Группа 1', frequency: '435.125 МГц' },
+            slot2: { type: 'data', group: 'Группа 2', frequency: '435.625 МГц' }
+        },
+        power: '10W',
+        firmware: 'v2.5.3'
+    };
+    
+    res.json(mockConfig);
+});
+
+// Добавление ретранслятора
+app.post('/api/bsu/retranslators', (req, res) => {
+    try {
         initData();
         try {
             const data = JSON.parse(fs.readFileSync(DATA_FILE));
@@ -56,41 +77,6 @@ function handlePostRequest(entity) {
         }
     };
 }
-
-// Добавляем обработчик для получения конфигурации по IP
-app.get('/api/bsu/retranslators/:ip/config', (req, res) => {
-    const ip = req.params.ip;
-    
-    // Эмуляция запроса к реальному устройству
-    const mockDeviceConfig = {
-        ip: ip,
-        slots: {
-            slot1: "Голосовой канал 1",
-            slot2: "Данные канал 2"
-        },
-        frequency: "435.125 МГц",
-        power: "10W"
-    };
-
-    res.json(mockDeviceConfig);
-});
-
-// Обновляем модель ретранслятора
-app.post('/api/bsu/retranslators', (req, res) => {
-    const newRetranslator = {
-        id: Date.now().toString(),
-        ip: req.body.ip,
-        slots: req.body.slots || {
-            slot1: "Группа 1",
-            slot2: "Группа 2" 
-        },
-        config: req.body.config
-    };
-    
-    // Сохранение в файл
-    saveToFile(newRetranslator);
-    res.status(201).json(newRetranslator);
-});
 
 app.post('/api/bsu/retranslators', handlePostRequest('retranslators'));
 app.post('/api/bsu/dispatchers', handlePostRequest('dispatchers'));
