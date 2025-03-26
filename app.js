@@ -112,62 +112,42 @@ function initMap() {
 
 // app.js (исправленная функция connectToServer)
 // app.js (исправленная функция connectToServer)
+// app.js (исправленная версия)
 async function connectToServer() {
-    try {
-        // Закрываем предыдущее соединение
-        if (connection) {
-            connection.close();
-        }
+  try {
+    // Проверка доступности сервера через HTTP
+    const response = await fetch(`http://${settings.ip}:5000/healthcheck`);
+    if (!response.ok) throw new Error("Сервер недоступен");
 
-        // Проверяем валидность IP
-        if (!/^(?:\d{1,3}\.){3}\d{1,3}$/.test(settings.ip)) {
-            throw new Error('Неверный формат IP-адреса');
-        }
+    connection = new WebSocket(`ws://${settings.ip}:2323`);
 
-        console.log('Попытка подключения к:', settings.ip, settings.port);
+    // Таймаут подключения
+    const timeout = setTimeout(() => {
+      connection.close();
+      throw new Error("Таймаут подключения");
+    }, 10000);
 
-        // Создаем новое соединение
-        connection = new WebSocket(`ws://${settings.ip}:${settings.port}`);
+    connection.onopen = () => {
+      clearTimeout(timeout);
+      console.log("Подключение установлено");
+      connection.send(JSON.stringify({ type: "handshake" }));
+    };
 
-        // Таймаут подключения (15 секунд)
-        const connectionTimeout = setTimeout(() => {
-            if (connection.readyState === WebSocket.CONNECTING) {
-                connection.close();
-                throw new Error('Сервер не отвежает. Проверьте:\n1. Запущен ли сервер\n2. Настройки брандмауэра');
-            }
-        }, 15000);
-
-        // Обработчики событий
-        connection.onopen = () => {
-            clearTimeout(connectionTimeout);
-            console.log('Подключение установлено!');
-            updateConnectionStatus('connected', 'Подключено');
-            // Тестовое сообщение
-            connection.send(JSON.stringify({ type: 'handshake' }));
-        };
-
-        connection.onerror = (error) => {
-            clearTimeout(connectionTimeout);
-            console.error('Ошибка подключения:', error);
-            updateConnectionStatus('error', 'Ошибка');
-            alert(`Ошибка: ${error.message || 'Проверьте сетевые настройки'}`);
-        };
-
-        connection.onclose = (event) => {
-            clearTimeout(connectionTimeout);
-            console.log('Соединение закрыто:', event.code, event.reason);
-            updateConnectionStatus('disconnected', 'Отключено');
-        };
-
-    } catch (error) {
-        console.error('Критическая ошибка:', error);
-        alert(`Ошибка подключения: ${error.message}`);
-    }
+    connection.onerror = (error) => {
+      console.error("Код ошибки:", error.code);
+      alert(
+        `Ошибка ${error.code}: Проверьте:\n1. CORS-настройки\n2. SSL-сертификаты\n3. Версию протокола`
+      );
+    };
+  } catch (error) {
+    console.error("Фатальная ошибка:", error);
+    alert(`Ошибка: ${error.message}`);
+  }
 }
 
 // Валидация IP-адреса
 function isValidIP(ip) {
-    return /^(?:\d{1,3}\.){3}\d{1,3}$/.test(ip);
+  return /^(?:\d{1,3}\.){3}\d{1,3}$/.test(ip);
 }
 // Обработка входящих данных
 function handleIncomingData(data) {

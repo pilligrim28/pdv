@@ -8,6 +8,7 @@ const upload = multer({ dest: 'uploads/' });
 
 const app = express();
 const PORT = 5000;
+const WS_PORT = 2323;
 const DATA_FILE = path.join(__dirname, 'data.json');
 const ENCRYPTION_KEY = 'my-secret-key';
 
@@ -87,46 +88,51 @@ app.post('/api/abonents', upload.single('icon'), (req, res) => {
 });
 
 // WebSocket Server
-const wss = new WebSocket.Server({ 
-    port: 2323,
-    host: '0.0.0.0',  // Слушаем все интерфейсы
+const wss = new WebSocket.Server({
+    host: '0.0.0.0',
+    port: WS_PORT,
     perMessageDeflate: false
-    }
-);
+});
+setInterval(() => {
+    wss.clients.forEach(ws => {
+        if (ws.isAlive === false) return ws.terminate();
+        ws.isAlive = false;
+        ws.ping();
+    });
+}, 30000);
+
 wss.on('listening', () => {
     console.log(`WebSocket сервер запущен на ws://0.0.0.0:2323`);
 });
 
 wss.on('connection', (ws) => {
+    ws.isAlive = true;
     console.log('Новое подключение:', ws._socket.remoteAddress);
-    
-    // Обработка входящих сообщений
-    ws.on('message', (message) => {
-        try {
-            const data = JSON.parse(message);
-            if (data.type === 'handshake') {
-                ws.send(JSON.stringify({ status: 'ok' }));
-            }
-        } catch (e) {
-            console.error('Ошибка обработки сообщения:', e);
-        }
+
+    ws.on('pong', () => {
+        ws.isAlive = true;
     });
 
-    // Обработка ошибок
     ws.on('error', (error) => {
         console.error('Ошибка соединения:', error);
     });
-
-    // Обработка закрытия
-    ws.on('close', (code, reason) => {
-        console.log('Соединение закрыто:', code, reason.toString());
-    });
 });
 
+// Запускаем HTTP-сервер для проверки доступности
+app.get('/healthcheck', (req, res) => {
+    res.status(200).send('OK');
+});
+
+app.listen(PORT, () => {
+    console.log(`HTTP сервер запущен на порту ${PORT}`);
+    console.log(`WebSocket сервер запущен на ws://0.0.0.0:${WS_PORT}`);
+});
 // Глобальная обработка ошибок сервера
 wss.on('error', (error) => {
     console.error('Ошибка сервера WebSocket:', error);
 });
+
+
 app.listen(PORT, () => {
     console.log(`HTTP сервер запущен на http://localhost:${PORT}`);
     console.log(`WebSocket сервер запущен на ws://localhost:2323`);
