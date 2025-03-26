@@ -110,35 +110,62 @@ function initMap() {
   }).addTo(map);
 }
 
-// Подключение к серверу
-// app.js (корректное подключение)
+// app.js (исправленная функция connectToServer)
 async function connectToServer() {
     try {
-        if (connection) connection.close();
-        
-        // Проверка доступности сервера
-        const isAlive = await fetch(`http://${settings.ip}:${settings.port}`);
-        if (!isAlive.ok) throw new Error('Сервер недоступен');
-
-        connection = new WebSocket(`ws://${settings.ip}:${settings.port}`);
-        
-        // Таймаут подключения
-        const timeout = setTimeout(() => {
+        // Закрываем предыдущее соединение
+        if (connection) {
             connection.close();
-            throw new Error('Таймаут подключения');
-        }, 5000);
+        }
 
+        // Проверяем валидность IP
+        if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(settings.ip)) {
+            throw new Error('Неверный формат IP-адреса');
+        }
+
+        console.log('Попытка подключения к:', settings.ip, settings.port);
+
+        // Создаем новое соединение
+        connection = new WebSocket(`ws://${settings.ip}:${settings.port}`);
+
+        // Таймаут подключения (10 секунд)
+        const connectionTimeout = setTimeout(() => {
+            if (connection.readyState !== WebSocket.OPEN) {
+                connection.close();
+                throw new Error('Сервер не отвечает');
+            }
+        }, 10000);
+
+        // Обработчики событий
         connection.onopen = () => {
-            clearTimeout(timeout);
-            console.log('Подключено!');
+            clearTimeout(connectionTimeout);
+            console.log('Подключение установлено!');
+            updateConnectionStatus('connected', 'Подключено');
         };
-        
+
+        connection.onerror = (error) => {
+            clearTimeout(connectionTimeout);
+            console.error('Ошибка подключения:', error);
+            updateConnectionStatus('error', 'Ошибка');
+            alert('Проверьте:\n1. Запущен ли сервер\n2. Корректность IP/порта\n3. Настройки брандмауэра');
+        };
+
+        connection.onclose = () => {
+            clearTimeout(connectionTimeout);
+            console.log('Соединение закрыто');
+            updateConnectionStatus('disconnected', 'Отключено');
+        };
+
     } catch (error) {
         console.error('Ошибка:', error);
         alert(`Ошибка подключения: ${error.message}`);
     }
 }
 
+// Валидация IP-адреса
+function isValidIP(ip) {
+    return /^(?:\d{1,3}\.){3}\d{1,3}$/.test(ip);
+}
 // Обработка входящих данных
 function handleIncomingData(data) {
   switch (data.type) {

@@ -89,24 +89,32 @@ app.post('/api/abonents', upload.single('icon'), (req, res) => {
 // WebSocket Server
 const wss = new WebSocket.Server({ 
     port: 2323,
-    host: '0.0.0.0'  // Слушаем все интерфейсы
+    host: '0.0.0.0',  // Слушаем все интерфейсы
+    verifyClient: (info, callback) => {
+        // Добавляем базовую проверку origin при необходимости
+        callback(true);
+    }
+});
+
+wss.on('listening', () => {
+    console.log(`WebSocket сервер запущен на ws://0.0.0.0:2323`);
 });
 
 wss.on('connection', (ws) => {
-    console.log('Новое WebSocket подключение');
+    console.log('Новое подключение');
     
-    ws.on('message', (message) => {
-        console.log('Получено сообщение:', message.toString());
-        // Рассылка сообщения всем клиентам
-        wss.clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(message.toString());
-            }
-        });
+    ws.on('error', (error) => {
+        console.error('Ошибка соединения:', error);
+    });
+
+    ws.on('close', () => {
+        console.log('Соединение закрыто');
     });
 });
+
+// Обработка ошибок сервера
 wss.on('error', (error) => {
-    console.error('WebSocket Server Error:', error);
+    console.error('Ошибка сервера:', error);
 });
 app.listen(PORT, () => {
     console.log(`HTTP сервер запущен на http://localhost:${PORT}`);
