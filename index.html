@@ -1,3 +1,4 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -14,7 +15,6 @@
     <div class="header">
         <div class="logo">
             <img src="img/NEON_dark.png" alt="Логотип системы">
-           
         </div>
         
         <div class="header-center">
@@ -22,10 +22,17 @@
                 <div id="currentTime" class="time"></div>
                 <div id="currentDate" class="date"></div>
             </div>
+            <div class="network-info">
+                <div>Статус: <span id="connectionStatus" class="status-disconnected">Отключено</span></div>
+                <div>Локальный IP: <span id="localIP">-</span></div>
+                <div>Удаленный IP: <span id="remoteIP">-</span></div>
+            </div>
         </div>
+        
         <button class="theme-toggle" id="themeToggle">
             <i class="fas fa-sun"></i>
         </button>
+        
         <div class="header-controls">
             <button id="toggleView">Показать панель</button>
             <button id="connectBtn">Подключиться</button>
@@ -41,7 +48,7 @@
 
         <div class="content-area">
             <div id="map" class="map-container"></div>
-            <div id="dashboard" class="dashboard"></div>
+            <div id="dashboard" class="dashboard" style="display: none;"></div>
         </div>
     </div>
 
@@ -49,24 +56,48 @@
     <div id="settingsModal" class="modal">
         <div class="modal-content">
             <h3>Настройки подключения</h3>
-            <input type="text" id="serverIp" placeholder="IP сервера" pattern="^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$" required>
-            <input type="text" id="serverPort" placeholder="Порт" inputmode="numeric" pattern="\d*" required>
-            <select id="dispatcher">
-                <option value="1">Диспетчер 1</option>
-                <option value="2">Диспетчер 2</option>
-            </select>
-            <button onclick="saveSettings()">Сохранить</button>
+            <div class="input-group">
+                <label for="serverIp">IP сервера:</label>
+                <input type="text" id="serverIp" placeholder="10.21.50.6" required>
+            </div>
+            <div class="input-group">
+                <label for="serverPort">Порт:</label>
+                <input type="number" id="serverPort" placeholder="2323" required>
+            </div>
+            <div class="input-group">
+                <label for="dispatcher">ID диспетчера:</label>
+                <input type="number" id="dispatcher" placeholder="16" required>
+            </div>
+            <div class="modal-buttons">
+                <button onclick="saveSettings()">Сохранить</button>
+                <button onclick="hideModals()">Отмена</button>
+            </div>
         </div>
     </div>
     
     <div id="abonentModal" class="modal">
         <div class="modal-content">
             <h3>Добавить абонента</h3>
-            <input type="text" id="abonentId" placeholder="ID абонента" inputmode="numeric" pattern="\d*" required>
-            <input type="text" id="abonentName" placeholder="Название" required>
-            <input type="color" id="abonentColor">
-            <input type="file" id="abonentIcon" accept="image/*">
-            <button onclick="saveAbonent()">Сохранить</button>
+            <div class="input-group">
+                <label for="abonentId">ID абонента:</label>
+                <input type="text" id="abonentId" inputmode="numeric" pattern="\d*" required>
+            </div>
+            <div class="input-group">
+                <label for="abonentName">Название:</label>
+                <input type="text" id="abonentName" required>
+            </div>
+            <div class="input-group">
+                <label for="abonentColor">Цвет:</label>
+                <input type="color" id="abonentColor" value="#3366ff">
+            </div>
+            <div class="input-group">
+                <label for="abonentIcon">Иконка:</label>
+                <input type="file" id="abonentIcon" accept="image/*">
+            </div>
+            <div class="modal-buttons">
+                <button onclick="saveAbonent()">Сохранить</button>
+                <button onclick="hideModals()">Отмена</button>
+            </div>
         </div>
     </div>
 
