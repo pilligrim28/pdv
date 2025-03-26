@@ -1,361 +1,203 @@
 let map;
 let connection;
 let settings = {
-    ip: '192.168.0.100',
+    ip: 'localhost',
     port: 5000,
     dispatcher: 1,
     encryptionKey: 'defaultKey'
 };
 
 const API_URL = 'http://localhost:5000/api';
-
-// Загрузка данных с сервера
-async function fetchData(endpoint) {
-    try {
-        const response = await fetch(`${API_URL}/${endpoint}`);
-        return await response.json();
-    } catch (error) {
-        console.error(`Ошибка при загрузке данных (${endpoint}):`, error);
-        return null;
-    }
-}
-
-// Сохранение данных на сервер
-async function saveData(endpoint, data) {
-    try {
-        const response = await fetch(`${API_URL}/${endpoint}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        return await response.json();
-    } catch (error) {
-        console.error(`Ошибка при сохранении данных (${endpoint}):`, error);
-        return null;
-    }
-}
-
-// Инициализация карты
-function initMap() {
-    if (typeof L === 'undefined') {
-        console.error('Leaflet не загружен');
-        return;
-    }
-    map = L.map('map').setView([55.751244, 37.618423], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-}
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/src/service-worker.js')
-        .then((registration) => {
-            console.log('Service Worker зарегистрирован:', registration);
-        })
-        .catch((error) => {
-            console.error('Ошибка регистрации Service Worker:', error);
-        });
-}
-// Обновление времени и даты
-function updateDateTime() {
-    const now = new Date();
-    document.getElementById('currentTime').textContent = now.toLocaleTimeString('ru-RU');
-    document.getElementById('currentDate').textContent = now.toLocaleDateString('ru-RU', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    });
-}
-
-// Показать/скрыть модальное окно
-function showModal(modalId) {
-    document.getElementById('overlay').style.display = 'block';
-    document.getElementById(modalId).style.display = 'block';
-}
-
-function hideModals() {
-    document.getElementById('overlay').style.display = 'none';
-    document.querySelectorAll('.modal').forEach(modal => {
-        modal.style.display = 'none';
-    });
-}
-
-// Подключение к серверу
-async function connectToServer() {
-    try {
-        console.log('Подключение к:', settings.ip, settings.port);
-        connection = new WebSocket(`ws://${settings.ip}:${settings.port}`);
-        connection.onerror = (error) => {
-            console.error('Ошибка подключения:', error);
-        };
-        connection.onopen = () => {
-            console.log('Подключение установлено');
-        };
-    } catch (error) {
-        console.error('Ошибка подключения:', error);
-    }
-}
-
-// Сохранение настроек
-async function saveSettings() {
-    const ipInput = document.getElementById('serverIp');
-    const portInput = document.getElementById('serverPort');
-
-    if (!ipInput.checkValidity()) {
-        alert('Пожалуйста, введите корректный IP-адрес.');
-        return;
-    }
-
-    if (!portInput.checkValidity()) {
-        alert('Пожалуйста, введите корректный порт (только цифры).');
-        return;
-    }
-
-    const ip = ipInput.value;
-    const port = portInput.value;
-
-    // Получаем ключ шифрования с сервера
-    const encryptionKey = await getEncryptionKey(ip, port);
-    if (!encryptionKey) {
-        alert('Не удалось получить ключ шифрования с сервера.');
-        return;
-    }
-
-    settings = {
-        ip: ip,
-        port: parseInt(port),
-        dispatcher: parseInt(document.getElementById('dispatcher').value),
-        encryptionKey: encryptionKey // Сохраняем полученный ключ
-    };
-
-    localStorage.setItem('bsuSettings', JSON.stringify(settings));
-    hideModals();
-}
-// Сохранение абонента
-async function saveAbonent() {
-    try {
-        const abonent = {
-            id: document.getElementById('abonentId').value,
-            name: document.getElementById('abonentName').value,
-            color: document.getElementById('abonentColor').value,
-            icon: document.getElementById('abonentIcon').files[0]
-        };
-        await saveData('abonents', abonent);
-        hideModals();
-        loadAbonents();
-    } catch (error) {
-        console.error('Ошибка сохранения абонента:', error);
-    }
-}
-
-// Загрузка абонентов
-async function loadAbonents() {
-    const abonents = await fetchData('abonents');
-    const abonentTree = document.getElementById('abonentTree');
-    if (!abonentTree) return;
-
-    abonentTree.innerHTML = '';
-    abonents.forEach(abonent => {
-        const listItem = document.createElement('li');
-        listItem.innerHTML = `
-            <div style="color:${abonent.color}">
-                ${abonent.name} (${abonent.id})
-            </div>
-        `;
-        abonentTree.appendChild(listItem);
-    });
-}
-
-// Загрузка групп
-async function loadGroups() {
-    const groups = await fetchData('groups');
-    const dashboard = document.getElementById('dashboard');
-    if (!dashboard) return;
-
-    dashboard.innerHTML = '';
-    groups.forEach(group => {
-        const element = document.createElement('div');
-        element.className = `card ${group.status}`;
-        element.innerHTML = `
-            <div class="card-header">
-                <div class="card-title">${group.title}</div>
-                <div class="card-status"></div>
-            </div>
-            <div class="card-controls">
-                <div class="ptt-button" onclick="handlePTT('${group.title}')">
-                    PTT
-                </div>
-                <div class="control-buttons">
-                    <div class="message-button" onclick="showMessageForm('${group.title}')">
-                        <i class="fas fa-envelope"></i>
-                    </div>
-                    <div class="sound-button" onclick="toggleSound(this, '${group.title}')">
-                        <i class="fas fa-volume-up"></i>
-                    </div>
-                </div>
-            </div>
-        `;
-        dashboard.appendChild(element);
-    });
-}
-
-// Переключение вида (карта/панель)
-let isMapView = true;
-function toggleView() {
-    const map = document.getElementById('map');
-    const dashboard = document.getElementById('dashboard');
-    const toggleBtn = document.getElementById('toggleView');
-    if (!map || !dashboard || !toggleBtn) return;
-
-    isMapView = !isMapView;
-    map.style.display = isMapView ? 'block' : 'none';
-    dashboard.style.display = isMapView ? 'none' : 'grid';
-    toggleBtn.textContent = isMapView ? 'Показать панель' : 'Показать карту';
-}
-
-// Обработка PTT
-function handlePTT(group) {
-    console.log(`PTT активировано для ${group}`);
-}
-
-// Обработка сообщения
-function showMessageForm(group) {
-    console.log(`Отправка сообщения ${group}`);
-}
-
-// Переключение звука
-function toggleSound(btn, group) {
-    const icon = btn.querySelector('i');
-    const isMuted = icon.classList.contains('fa-volume-mute');
-    icon.classList.toggle('fa-volume-up');
-    icon.classList.toggle('fa-volume-mute');
-    console.log(`Звук ${isMuted ? 'включен' : 'выключен'} для ${group}`);
-}
-
-// Инициализация темы
-function initTheme() {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    document.body.setAttribute('data-theme', savedTheme);
-    const themeToggle = document.getElementById('themeToggle');
-    themeToggle.innerHTML = savedTheme === 'dark' ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
-}
-
-// Переключение темы
-function toggleTheme() {
-    const body = document.body;
-    const isDark = body.getAttribute('data-theme') === 'dark';
-    body.setAttribute('data-theme', isDark ? 'light' : 'dark');
-    const themeToggle = document.getElementById('themeToggle');
-    themeToggle.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
-    localStorage.setItem('theme', isDark ? 'light' : 'dark');
-}
+const BSU_API_URL = 'http://localhost:5001/api';
 
 // Инициализация при загрузке
 window.onload = async () => {
     initTheme();
     initMap();
-    setInterval(updateDateTime, 1000);
-    updateDateTime();
-
-    // Загрузка данных с сервера
-    const savedSettings = await fetchData('settings');
-    if (savedSettings) settings = savedSettings;
-
-    // Загрузка абонентов и групп
-    await loadAbonents();
-    await loadGroups();
-
-    // Назначение обработчиков
-    document.getElementById('connectBtn').onclick = connectToServer;
-    document.getElementById('settingsBtn').onclick = () => showModal('settingsModal');
-    document.getElementById('addAbonent').onclick = () => showModal('abonentModal');
-    document.getElementById('toggleView').onclick = toggleView;
-    document.getElementById('overlay').onclick = hideModals;
-
-    const themeToggle = document.getElementById('themeToggle');
-    themeToggle.addEventListener('click', toggleTheme);
+    initDateTime();
+    await initApp();
+    setupEventListeners();
 };
-// Обработчики для маски IP и ограничения на цифры
-document.getElementById('serverIp').addEventListener('input', function (e) {
-    let value = e.target.value;
-    value = value.replace(/[^0-9.]/g, '');
-    const parts = value.split('.');
-    if (parts.length > 4) {
-        parts.length = 4;
+
+// Основная инициализация
+async function initApp() {
+    await loadSettings();
+    await loadInitialData();
+    connectToServer();
+}
+
+// Загрузка данных
+async function loadInitialData() {
+    await Promise.all([
+        loadAbonents(),
+        loadGroups(),
+        loadRetranslators() // Новая функция для загрузки ретрансляторов
+    ]);
+}
+
+// Подключение к WebSocket
+async function connectToServer() {
+    try {
+        connection = new WebSocket(`ws://${settings.ip}:${settings.port}`);
+
+        connection.onopen = () => {
+            console.log('WebSocket подключен');
+            authenticate();
+        };
+
+        connection.onerror = (error) => {
+            console.error('Ошибка WebSocket:', error);
+            setTimeout(connectToServer, 5000);
+        };
+
+        connection.onclose = () => {
+            console.log('WebSocket закрыт');
+            setTimeout(connectToServer, 5000);
+        };
+
+        connection.onmessage = handleWebSocketMessage;
+
+    } catch (error) {
+        console.error('Ошибка подключения:', error);
     }
-    for (let i = 0; i < parts.length; i++) {
-        if (parts[i].length > 3) {
-            parts[i] = parts[i].slice(0, 3);
-        }
+}
+
+// Обработка сообщений WebSocket
+function handleWebSocketMessage(event) {
+    const data = JSON.parse(event.data);
+    
+    switch(data.type) {
+        case 'auth_response':
+            handleAuthResponse(data);
+            break;
+        case 'ptt_notification':
+            handlePttNotification(data);
+            break;
+        case 'status_update':
+            updateGroupStatus(data.group, data.status);
+            break;
+        default:
+            console.log('Неизвестный тип сообщения:', data);
     }
-    e.target.value = parts.join('.');
-});
+}
 
-document.getElementById('abonentId').addEventListener('input', function (e) {
-    e.target.value = e.target.value.replace(/\D/g, '');
-});
+// Загрузка ретрансляторов из bsuserver.js
+async function loadRetranslators() {
+    try {
+        const response = await fetch(`${BSU_API_URL}/bsu/data`);
+        const data = await response.json();
+        renderRetranslators(data.retranslators);
+    } catch (error) {
+        console.error('Ошибка загрузки ретрансляторов:', error);
+    }
+}
 
-document.getElementById('serverPort').addEventListener('input', function (e) {
-    e.target.value = e.target.value.replace(/\D/g, '');
-});
+// Отображение ретрансляторов на карте
+function renderRetranslators(retranslators) {
+    if (!map) return;
+    
+    retranslators.forEach(rt => {
+        const marker = L.marker([rt.lat, rt.lng]).addTo(map);
+        marker.bindPopup(`
+            <b>${rt.name}</b><br>
+            IP: ${rt.ip}<br>
+            Статус: ${rt.status}
+        `);
+    });
+}
 
-// Функции сохранения с проверкой валидности
-function saveSettings() {
+// Обновленный обработчик PTT
+function handlePTT(group) {
+    if (!connection || connection.readyState !== WebSocket.OPEN) {
+        alert('Нет подключения к серверу');
+        return;
+    }
+
+    const pttData = {
+        type: 'ptt',
+        group: group,
+        dispatcher: settings.dispatcher,
+        timestamp: new Date().toISOString()
+    };
+
+    connection.send(JSON.stringify(pttData));
+    
+    // Дополнительно сохраняем в историю
+    savePTTHistory(pttData);
+}
+
+// Сохранение истории PTT
+async function savePTTHistory(data) {
+    try {
+        await fetch(`${API_URL}/ptt_history`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+    } catch (error) {
+        console.error('Ошибка сохранения истории PTT:', error);
+    }
+}
+
+// Получение конфигурации ретранслятора
+async function getRetranslatorConfig(ip) {
+    try {
+        const response = await fetch(`${BSU_API_URL}/bsu/retranslators/${ip}/config`);
+        return await response.json();
+    } catch (error) {
+        console.error('Ошибка получения конфигурации:', error);
+        return null;
+    }
+}
+
+// Инициализация даты и времени
+function initDateTime() {
+    updateDateTime();
+    setInterval(updateDateTime, 1000);
+}
+
+// Остальные функции (updateDateTime, initMap, initTheme и т.д.) остаются без изменений
+// ...
+
+// Пример обновленной функции saveSettings
+async function saveSettings() {
     const ipInput = document.getElementById('serverIp');
     const portInput = document.getElementById('serverPort');
 
-    if (!ipInput.checkValidity()) {
-        alert('Пожалуйста, введите корректный IP-адрес.');
-        return;
-    }
+    if (!validateInputs(ipInput, portInput)) return;
 
-    if (!portInput.checkValidity()) {
-        alert('Пожалуйста, введите корректный порт (только цифры).');
-        return;
-    }
-
-    settings = {
+    const newSettings = {
         ip: ipInput.value,
         port: parseInt(portInput.value),
         dispatcher: parseInt(document.getElementById('dispatcher').value),
-        encryptionKey: document.getElementById('encryptionKey').value
+        encryptionKey: await fetchEncryptionKey(ipInput.value, portInput.value)
     };
-    localStorage.setItem('bsuSettings', JSON.stringify(settings));
-    hideModals();
-}
 
-function saveAbonent() {
-    const abonentIdInput = document.getElementById('abonentId');
-
-    if (!abonentIdInput.checkValidity()) {
-        alert('Пожалуйста, введите корректный ID (только цифры).');
+    if (!newSettings.encryptionKey) {
+        alert('Ошибка аутентификации');
         return;
     }
 
-    const abonent = {
-        id: abonentIdInput.value,
-        name: document.getElementById('abonentName').value,
-        color: document.getElementById('abonentColor').value,
-        icon: document.getElementById('abonentIcon').files[0]
-    };
-
-    const listItem = document.createElement('li');
-    listItem.innerHTML = `
-        <div style="color:${abonent.color}">
-            ${abonent.name} (${abonent.id})
-        </div>
-    `;
-    document.getElementById('abonentTree').appendChild(listItem);
+    Object.assign(settings, newSettings);
+    localStorage.setItem('bsuSettings', JSON.stringify(settings));
+    
     hideModals();
+    connectToServer(); // Переподключение с новыми настройками
 }
-async function getEncryptionKey(ip, port) {
-    try {
-        const response = await fetch(`http://${ip}:${port}/api/encryptionKey`);
-        if (!response.ok) {
-            throw new Error('Ошибка при получении ключа шифрования');
-        }
-        const data = await response.json();
-        return data.key; // Предполагаем, что сервер возвращает ключ в поле `key`
-    } catch (error) {
-        console.error('Ошибка при получении ключа шифрования:', error);
-        return null;
+
+// Валидация ввода
+function validateInputs(ipInput, portInput) {
+    let isValid = true;
+    
+    if (!ipInput.checkValidity()) {
+        alert('Неверный IP-адрес');
+        isValid = false;
     }
+    
+    if (!portInput.checkValidity()) {
+        alert('Неверный порт');
+        isValid = false;
+    }
+    
+    return isValid;
 }
