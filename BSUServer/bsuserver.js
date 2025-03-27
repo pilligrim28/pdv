@@ -58,11 +58,11 @@ app.get('/api/bsu/retranslators/:ip/config', (req, res) => {
     res.json(mockConfig);
 });
 
-// Добавление ретранслятора
-app.post('/api/bsu/retranslators', (req, res) => {
-    try {
-        initData();
+// Функция для обработки POST запросов
+function handlePostRequest(entity) {
+    return (req, res) => {
         try {
+            initData();
             const data = JSON.parse(fs.readFileSync(DATA_FILE));
             const newItem = {
                 id: Date.now().toString(),
@@ -78,8 +78,9 @@ app.post('/api/bsu/retranslators', (req, res) => {
     };
 }
 
-app.post('/api/bsu/retranslators', handlePostRequest('retranslators'));
-app.post('/api/bsu/dispatchers', handlePostRequest('dispatchers'));
+// POST endpoints
+app.post('/api/bsu/retranslators', handlePostRequest('retranslator'));
+app.post('/api/bsu/dispatchers', handlePostRequest('dispatcher'));
 app.post('/api/bsu/radioStations', handlePostRequest('radioStation'));
 
 app.listen(PORT, () => {

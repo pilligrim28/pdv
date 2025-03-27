@@ -76,47 +76,22 @@ class BSUSystem {
             this.showError('Ошибка загрузки:', error);
         }
     }
-    async addRetranslator() {
-            try {
-                const ip = document.getElementById('ipInput').value;
-                
-                // Запрос конфигурации по IP
-                const configResponse = await fetch(`/api/bsu/retranslators/${ip}/config`);
-                const deviceConfig = await configResponse.json();
-    
-                // Создание ретранслятора с автоматическими слотами
-                const response = await fetch('/api/bsu/retranslators', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        ip: ip,
-                        slots: deviceConfig.slots,
-                        config: deviceConfig
-                    })
-                });
-    
-                this.updateUI();
-            } catch (error) {
-                this.showError('Ошибка получения конфигурации:', error);
-            }
-        
-    
-        renderRetranslator(item) {
-            return `
-                <div class="device-card">
-                    <h3>${item.ip}</h3>
-                    <div class="slots">
-                        <div class="slot ${item.slots.slot1 ? 'active' : ''}">
-                            Слот 1: ${item.slots.slot1}
-                        </div>
-                        <div class="slot ${item.slots.slot2 ? 'active' : ''}">
-                            Слот 2: ${item.slots.slot2}
-                        </div>
+
+    renderRetranslator(item) {
+        return `
+            <div class="device-card">
+                <h3>${item.ip}</h3>
+                <div class="slots">
+                    <div class="slot ${item.slots.slot1 ? 'active' : ''}">
+                        Слот 1: ${item.slots.slot1}
                     </div>
-                    <pre>${JSON.stringify(item.config, null, 2)}</pre>
+                    <div class="slot ${item.slots.slot2 ? 'active' : ''}">
+                        Слот 2: ${item.slots.slot2}
+                    </div>
                 </div>
-            `;
-        }
+                <pre>${JSON.stringify(item.config, null, 2)}</pre>
+            </div>
+        `;
     }
 
     renderRetranslators(retranslators) {

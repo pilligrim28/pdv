@@ -35,6 +35,42 @@
         "firmware": "v2.5.3"
       },
       "lastUpdated": "2025-03-26T05:03:48.671Z"
+    },
+    {
+      "id": "1743052525283",
+      "ip": "127.0.0.1",
+      "slots": {
+        "slot1": {
+          "type": "voice",
+          "group": "Группа 1",
+          "frequency": "435.125 МГц"
+        },
+        "slot2": {
+          "type": "data",
+          "group": "Группа 2",
+          "frequency": "435.625 МГц"
+        }
+      },
+      "config": {
+        "status": "online",
+        "ip": "127.0.0.1",
+        "model": "DR600",
+        "slots": {
+          "slot1": {
+            "type": "voice",
+            "group": "Группа 1",
+            "frequency": "435.125 МГц"
+          },
+          "slot2": {
+            "type": "data",
+            "group": "Группа 2",
+            "frequency": "435.625 МГц"
+          }
+        },
+        "power": "10W",
+        "firmware": "v2.5.3"
+      },
+      "status": "active"
     }
   ],
   "dispatchers": [],

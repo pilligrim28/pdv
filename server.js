@@ -7,7 +7,7 @@ const WebSocket = require('ws');
 const upload = multer({ dest: 'uploads/' });
 
 const app = express();
-const PORT = 5000;
+const PORT = 5025;
 const WS_PORT = 2323;
 const DATA_FILE = path.join(__dirname, 'data.json');
 const ENCRYPTION_KEY = 'my-secret-key';
@@ -93,6 +93,7 @@ const wss = new WebSocket.Server({
     port: WS_PORT,
     perMessageDeflate: false
 });
+
 setInterval(() => {
     wss.clients.forEach(ws => {
         if (ws.isAlive === false) return ws.terminate();
@@ -102,7 +103,7 @@ setInterval(() => {
 }, 30000);
 
 wss.on('listening', () => {
-    console.log(`WebSocket сервер запущен на ws://0.0.0.0:2323`);
+    console.log(`WebSocket сервер запущен на ws://0.0.0.0:${WS_PORT}`);
 });
 
 wss.on('connection', (ws) => {
@@ -118,22 +119,18 @@ wss.on('connection', (ws) => {
     });
 });
 
-// Запускаем HTTP-сервер для проверки доступности
-app.get('/healthcheck', (req, res) => {
-    res.status(200).send('OK');
-});
-
-app.listen(PORT, () => {
-    console.log(`HTTP сервер запущен на порту ${PORT}`);
-    console.log(`WebSocket сервер запущен на ws://0.0.0.0:${WS_PORT}`);
-});
 // Глобальная обработка ошибок сервера
 wss.on('error', (error) => {
     console.error('Ошибка сервера WebSocket:', error);
 });
 
+// Запускаем HTTP-сервер для проверки доступности
+app.get('/healthcheck', (req, res) => {
+    res.status(200).send('OK');
+});
 
+// Single app.listen() call
 app.listen(PORT, () => {
     console.log(`HTTP сервер запущен на http://localhost:${PORT}`);
-    console.log(`WebSocket сервер запущен на ws://localhost:2323`);
+    console.log(`WebSocket сервер запущен на ws://localhost:${WS_PORT}`);
 });
