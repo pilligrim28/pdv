@@ -13,7 +13,12 @@ const DATA_FILE = path.join(__dirname, 'data.json');
 const ENCRYPTION_KEY = 'my-secret-key';
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: 'http://localhost:3000', // Укажите домен вашего фронтенда
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true // Разрешить куки и заголовки авторизации
+  }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 app.use('/uploads', express.static('uploads'));
@@ -42,7 +47,10 @@ function loadData() {
 function saveData(data) {
     fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 }
-
+// server.js
+app.get('/healthcheck', (req, res) => {
+    res.status(200).json({ status: "OK" });
+  });
 // API Endpoints
 app.get('/api/encryptionKey', authenticate, (req, res) => {
     res.json({ key: ENCRYPTION_KEY });
