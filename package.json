@@ -6,7 +6,6 @@
     "server": "node server.js",
     "client": "cd client && npm start",
     "proxy": "http://localhost:5000"
-  
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -20,6 +19,4 @@
   "devDependencies": {
     "concurrently": "^9.1.2"
   }
-  
-    
 }

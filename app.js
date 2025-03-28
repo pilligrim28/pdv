@@ -2,13 +2,18 @@ let map;
 let connection;
 let settings = {
   ip: "10.21.50.6",
-  port: 2323,
+  httpPort: 5025,
+  wsPort: 2323,
   dispatcher: 16,
   encryptionKey: "defaultKey",
+  userId: "user_" + Math.random().toString(36).substring(2, 9)
 };
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = `http://${settings.ip}:${settings.httpPort}/api`;
 let isMapView = true;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
+const RECONNECT_DELAY = 3000;
 
 // Инициализация темы
 function initTheme() {
@@ -26,7 +31,6 @@ function updateThemeIcon(theme) {
   }
 }
 
-// Переключение темы
 function toggleTheme() {
   const body = document.body;
   const isDark = body.getAttribute("data-theme") === "dark";
@@ -40,195 +44,364 @@ function toggleTheme() {
 // Обновление времени и даты
 function updateDateTime() {
   const now = new Date();
-  document.getElementById("currentTime").textContent = now.toLocaleTimeString("ru-RU");
-  document.getElementById("currentDate").textContent = now.toLocaleDateString("ru-RU", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric"
-  });
+  const timeElement = document.getElementById("currentTime");
+  const dateElement = document.getElementById("currentDate");
+  
+  if (timeElement) timeElement.textContent = now.toLocaleTimeString("ru-RU");
+  if (dateElement) {
+    dateElement.textContent = now.toLocaleDateString("ru-RU", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric"
+    });
+  }
 }
 
-// Показать/скрыть модальные окна
+// Модальные окна
 function showModal(modalId) {
-  document.getElementById("overlay").style.display = "block";
-  document.getElementById(modalId).style.display = "block";
+  const overlay = document.getElementById("overlay");
+  const modal = document.getElementById(modalId);
+  
+  if (overlay) overlay.style.display = "block";
+  if (modal) modal.style.display = "block";
 }
 
 function hideModals() {
-  document.getElementById("overlay").style.display = "none";
+  const overlay = document.getElementById("overlay");
+  if (overlay) overlay.style.display = "none";
+  
   document.querySelectorAll(".modal").forEach((modal) => {
     modal.style.display = "none";
   });
 }
 
-// Загрузка данных с сервера
-async function fetchData(endpoint) {
+// Работа с API
+async function fetchData(endpoint, options = {}) {
   try {
-    const response = await fetch(`${API_URL}/${endpoint}`);
-    if (!response.ok) throw new Error(`Ошибка HTTP: ${response.status}`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    
+    const response = await fetch(`${API_URL}/${endpoint}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Authorization': `Bearer ${settings.encryptionKey}`,
+        ...(options.headers || {})
+      }
+    });
+    
+    clearTimeout(timeout);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} ${response.statusText}`);
+    }
     return await response.json();
   } catch (error) {
-    console.error(`Ошибка при загрузке данных (${endpoint}):`, error);
+    console.error(`Ошибка при загрузке ${endpoint}:`, error);
+    showErrorModal(`Не удалось загрузить данные: ${error.message}`);
     return null;
   }
 }
 
-// Сохранение данных на сервер
 async function saveData(endpoint, data) {
   try {
-    const options = { method: "POST" };
+    const options = { 
+      method: "POST",
+      headers: {}
+    };
+    
     if (data instanceof FormData) {
       options.body = data;
     } else {
-      options.headers = { "Content-Type": "application/json" };
+      options.headers["Content-Type"] = "application/json";
       options.body = JSON.stringify(data);
     }
-    const response = await fetch(`${API_URL}/${endpoint}`, options);
-    if (!response.ok) throw new Error(`Ошибка HTTP: ${response.status}`);
-    return await response.json();
+
+    return await fetchData(endpoint, options);
   } catch (error) {
-    console.error(`Ошибка при сохранении данных (${endpoint}):`, error);
+    console.error(`Ошибка при сохранении (${endpoint}):`, error);
+    showErrorModal(`Ошибка сохранения: ${error.message}`);
     return null;
   }
 }
 
-// Инициализация карты
+// Карта
 function initMap() {
   if (typeof L === "undefined") {
     console.error("Leaflet не загружен");
     return;
   }
+  
+  const mapElement = document.getElementById("map");
+  if (!mapElement) return;
+  
   map = L.map("map").setView([55.751244, 37.618423], 13);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "&copy; OpenStreetMap contributors",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
   }).addTo(map);
+  
+  // Пример маркера
+  L.marker([55.751244, 37.618423])
+    .addTo(map)
+    .bindPopup("Центр Москвы")
+    .openPopup();
 }
 
-// app.js (исправленная функция connectToServer)
-// app.js (исправленная функция connectToServer)
-// app.js (исправленная версия)
+// WebSocket соединение
 async function connectToServer() {
   try {
-    // Проверка доступности сервера через HTTP
-    const response = await fetch(`http://${settings.ip}:5000/healthcheck`);
-    if (!response.ok) throw new Error("Сервер недоступен");
+    // Проверка доступности HTTP сервера
+    const health = await fetchData("healthcheck");
+    if (!health) {
+      throw new Error("Сервер недоступен");
+    }
 
-    connection = new WebSocket(`ws://${settings.ip}:2323`);
-
-    // Таймаут подключения
-    const timeout = setTimeout(() => {
+    // Закрываем предыдущее соединение, если есть
+    if (connection) {
       connection.close();
-      throw new Error("Таймаут подключения");
-    }, 10000);
+    }
 
+    connection = new WebSocket(`ws://${settings.ip}:${settings.wsPort}`);
+    
     connection.onopen = () => {
-      clearTimeout(timeout);
-      console.log("Подключение установлено");
-      connection.send(JSON.stringify({ type: "handshake" }));
+      reconnectAttempts = 0;
+      console.log("WebSocket подключен");
+      updateConnectionStatus("connected", "Подключено");
+      showSystemMessage("Соединение с сервером установлено");
+      
+      // Отправляем информацию о пользователе
+      connection.send(JSON.stringify({
+        type: "user_connect",
+        userId: settings.userId,
+        status: "online"
+      }));
+      
+      // Загружаем начальные данные
+      loadInitialData();
+    };
+
+    connection.onclose = (event) => {
+      console.log("WebSocket отключен:", event.code, event.reason);
+      updateConnectionStatus("disconnected", "Отключено");
+      
+      // Пытаемся переподключиться
+      if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+        reconnectAttempts++;
+        const delay = Math.min(RECONNECT_DELAY * reconnectAttempts, 15000);
+        console.log(`Попытка переподключения #${reconnectAttempts} через ${delay}мс`);
+        setTimeout(connectToServer, delay);
+      }
     };
 
     connection.onerror = (error) => {
-      console.error("Код ошибки:", error.code);
-      alert(
-        `Ошибка ${error.code}: Проверьте:\n1. CORS-настройки\n2. SSL-сертификаты\n3. Версию протокола`
-      );
+      console.error("WebSocket ошибка:", error);
+      updateConnectionStatus("error", "Ошибка подключения");
+      showErrorModal("Ошибка соединения с сервером");
     };
+
+    connection.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        handleIncomingData(data);
+      } catch (error) {
+        console.error("Ошибка обработки сообщения:", error);
+      }
+    };
+
   } catch (error) {
-    console.error("Фатальная ошибка:", error);
-    alert(`Ошибка: ${error.message}`);
+    console.error("Ошибка подключения:", error);
+    showErrorModal(`Ошибка подключения: ${error.message}`);
+    updateConnectionStatus("error", "Ошибка подключения");
+    
+    // Пытаемся переподключиться
+    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+      reconnectAttempts++;
+      const delay = Math.min(RECONNECT_DELAY * reconnectAttempts, 15000);
+      setTimeout(connectToServer, delay);
+    }
   }
 }
 
-// Валидация IP-адреса
-function isValidIP(ip) {
-  return /^(?:\d{1,3}\.){3}\d{1,3}$/.test(ip);
-}
 // Обработка входящих данных
 function handleIncomingData(data) {
+  console.log("Получены данные:", data);
+  
   switch (data.type) {
-    case "ptt":
-      console.log("PTT активировано:", data.group);
+    case "welcome":
+      handleWelcomeMessage(data);
       break;
-    case "message":
-      alert(`Новое сообщение для ${data.group}: ${data.message}`);
+    case "ptt_event":
+      handlePTTEvent(data);
       break;
+    case "new_message":
+      handleNewMessage(data);
+      break;
+    case "user_status":
+      handleUserStatusChange(data);
+      break;
+    case "group_created":
+      handleNewGroup(data);
+      break;
+    case "abonent_created":
+      handleNewAbonent(data);
+      break;
+    default:
+      console.warn("Неизвестный тип данных:", data.type);
   }
 }
 
-// Обновление статуса подключения
+function handleWelcomeMessage(data) {
+  showSystemMessage(data.message);
+}
+
+function handlePTTEvent(data) {
+  console.log("PTT активировано:", data.group, "пользователем:", data.userId);
+  // Здесь можно добавить визуализацию активации PTT
+  showSystemMessage(`PTT активировано в группе ${data.group} пользователем ${data.userId}`);
+}
+
+function handleNewMessage(data) {
+  const message = `Новое сообщение в группе ${data.groupId} от ${data.userId}: ${data.message}`;
+  console.log(message);
+  showSystemMessage(message);
+}
+
+function handleUserStatusChange(data) {
+  console.log(`Пользователь ${data.userId} сменил статус на ${data.status}`);
+  // Обновляем UI статуса пользователя
+  updateAbonentStatus(data.userId, data.status);
+}
+
+function handleNewGroup(data) {
+  console.log("Создана новая группа:", data.group);
+  // Обновляем список групп
+  loadGroups();
+}
+
+function handleNewAbonent(data) {
+  console.log("Добавлен новый абонент:", data.abonent);
+  // Обновляем список абонентов
+  loadAbonents();
+}
+
+// Управление подключением
 function updateConnectionStatus(status, message) {
   const statusElement = document.getElementById("connectionStatus");
   if (!statusElement) return;
+  
   statusElement.textContent = message;
-  statusElement.className = `status-${status}`;
+  statusElement.className = "";
+  statusElement.classList.add("connection-status", `status-${status}`);
 }
 
-// Обновление сетевой информации
 function updateNetworkInfo() {
-  document.getElementById(
-    "remoteIP"
-  ).textContent = `${settings.ip}:${settings.port}`;
+  const remoteIpElement = document.getElementById("remoteIP");
+  if (remoteIpElement) {
+    remoteIpElement.textContent = `${settings.ip}:${settings.wsPort}`;
+  }
 }
 
-// Сохранение настроек
+// Настройки
 async function saveSettings() {
-  const ip = document.getElementById("serverIp").value;
-  const port = document.getElementById("serverPort").value;
-  const dispatcher = document.getElementById("dispatcher").value;
+  const ipInput = document.getElementById("serverIp");
+  const portInput = document.getElementById("serverPort");
+  const dispatcherInput = document.getElementById("dispatcher");
 
-  if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
-    alert("Неверный формат IP-адреса");
+  if (!ipInput || !portInput || !dispatcherInput) {
+    showErrorModal("Не найдены элементы настроек");
     return;
   }
 
-  settings = {
-    ip: ip,
-    port: parseInt(port),
-    dispatcher: parseInt(dispatcher),
-    encryptionKey: await getEncryptionKey(ip, port),
-  };
+  const ip = ipInput.value.trim();
+  const port = parseInt(portInput.value);
+  const dispatcher = parseInt(dispatcherInput.value);
 
-  localStorage.setItem("bsuSettings", JSON.stringify(settings));
-  hideModals();
-  alert("Настройки сохранены!");
-  location.reload();
+  if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
+    showErrorModal("Неверный формат IP-адреса");
+    return;
+  }
+
+  if (isNaN(port) || port < 1 || port > 65535) {
+    showErrorModal("Неверный порт (допустимо 1-65535)");
+    return;
+  }
+
+  try {
+    const encryptionKey = await getEncryptionKey(ip, port);
+    if (!encryptionKey) {
+      showErrorModal("Не удалось получить ключ шифрования");
+      return;
+    }
+
+    settings = { ...settings, ip, wsPort: port, dispatcher, encryptionKey };
+    localStorage.setItem("bsuSettings", JSON.stringify(settings));
+    
+    hideModals();
+    updateNetworkInfo();
+    showSystemMessage("Настройки сохранены успешно");
+    
+    // Переподключение с новыми настройками
+    connectToServer();
+    
+  } catch (error) {
+    console.error("Ошибка сохранения настроек:", error);
+    showErrorModal(`Ошибка сохранения: ${error.message}`);
+  }
 }
 
-// Получение ключа шифрования
 async function getEncryptionKey(ip, port) {
   try {
-    const response = await fetch(`http://${ip}:${port}/api/encryptionKey`);
-    if (!response.ok) throw new Error("Ошибка при получении ключа");
+    const response = await fetch(`http://${ip}:${port}/api/encryptionKey`, {
+      headers: { Authorization: `Bearer ${settings.encryptionKey}` }
+    });
+    
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     const data = await response.json();
     return data.key;
   } catch (error) {
-    console.error("Ошибка:", error);
+    console.error("Ошибка получения ключа:", error);
     return null;
   }
 }
 
-// Сохранение абонента
+// Абоненты
 async function saveAbonent() {
+  const nameInput = document.getElementById("abonentName");
+  const colorInput = document.getElementById("abonentColor");
+  const iconInput = document.getElementById("abonentIcon");
+
+  if (!nameInput || !colorInput || !iconInput) {
+    showErrorModal("Не найдены поля формы абонента");
+    return;
+  }
+
   try {
     const formData = new FormData();
-    formData.append("id", document.getElementById("abonentId").value);
-    formData.append("name", document.getElementById("abonentName").value);
-    formData.append("color", document.getElementById("abonentColor").value);
-
-    const iconFile = document.getElementById("abonentIcon").files[0];
+    formData.append("name", nameInput.value.trim());
+    formData.append("color", colorInput.value);
+    
+    const iconFile = iconInput.files[0];
     if (iconFile) formData.append("icon", iconFile);
 
-    await saveData("abonents", formData);
+    const result = await saveData("abonents", formData);
+    if (!result || !result.success) throw new Error("Ошибка сохранения");
+
     hideModals();
-    loadAbonents();
+    await loadAbonents();
+    showSystemMessage("Абонент добавлен успешно");
+    
+    // Очистка формы
+    nameInput.value = "";
+    colorInput.value = "#000000";
+    iconInput.value = "";
+    
   } catch (error) {
-    console.error("Ошибка сохранения:", error);
-    alert("Ошибка сохранения абонента");
+    console.error("Ошибка сохранения абонента:", error);
+    showErrorModal("Ошибка сохранения абонента");
   }
 }
 
-// Загрузка абонентов
 async function loadAbonents() {
   const abonents = await fetchData("abonents");
   const abonentTree = document.getElementById("abonentTree");
@@ -237,21 +410,35 @@ async function loadAbonents() {
   abonentTree.innerHTML = "";
   abonents.forEach((abonent) => {
     const listItem = document.createElement("li");
+    listItem.className = "abonent-item";
     listItem.innerHTML = `
-            <div style="color:${abonent.color}">
-                ${abonent.name} (${abonent.id})
-                ${
-                  abonent.icon
-                    ? `<img src="${abonent.icon}" class="abonent-icon">`
-                    : ""
-                }
-            </div>
-        `;
+      <div class="abonent-info" style="color:${abonent.color || '#000'}">
+        <span class="abonent-name">${abonent.name}</span>
+        ${abonent.icon ? `<img src="${abonent.icon}" class="abonent-icon">` : ''}
+        <span class="abonent-status ${abonent.online ? 'online' : 'offline'}">
+          ${abonent.online ? 'online' : 'offline'}
+        </span>
+      </div>
+    `;
     abonentTree.appendChild(listItem);
   });
 }
 
-// Загрузка групп
+function updateAbonentStatus(userId, status) {
+  const abonentItems = document.querySelectorAll(".abonent-item");
+  abonentItems.forEach(item => {
+    const nameElement = item.querySelector(".abonent-name");
+    if (nameElement && nameElement.textContent.includes(userId)) {
+      const statusElement = item.querySelector(".abonent-status");
+      if (statusElement) {
+        statusElement.textContent = status;
+        statusElement.className = `abonent-status ${status}`;
+      }
+    }
+  });
+}
+
+// Группы
 async function loadGroups() {
   const groups = await fetchData("groups");
   const dashboard = document.getElementById("dashboard");
@@ -260,68 +447,163 @@ async function loadGroups() {
   dashboard.innerHTML = "";
   groups.forEach((group) => {
     const element = document.createElement("div");
-    element.className = `card ${group.status}`;
+    element.className = `card ${group.status || 'offline'}`;
+    element.dataset.group = group.id;
     element.innerHTML = `
-            <div class="card-header">
-                <div class="card-title">${group.title}</div>
-                <div class="card-status"></div>
-            </div>
-            <div class="card-controls">
-                <div class="ptt-button" onclick="handlePTT('${group.title}')">PTT</div>
-                <div class="control-buttons">
-                    <div class="message-button" onclick="showMessageForm('${group.title}')">
-                        <i class="fas fa-envelope"></i>
-                    </div>
-                    <div class="sound-button" onclick="toggleSound(this, '${group.title}')">
-                        <i class="fas fa-volume-up"></i>
-                    </div>
-                </div>
-            </div>
-        `;
+      <div class="card-header">
+        <div class="card-title">${group.title}</div>
+        <div class="card-status">${group.status || 'offline'}</div>
+      </div>
+      <div class="card-controls">
+        <button class="ptt-button" onclick="handlePTT('${group.id}')">PTT</button>
+        <div class="control-buttons">
+          <button class="message-button" onclick="showMessageForm('${group.id}')">
+            <i class="fas fa-envelope"></i>
+          </button>
+          <button class="sound-button" onclick="toggleSound(this, '${group.id}')">
+            <i class="fas fa-volume-up"></i>
+          </button>
+        </div>
+      </div>
+      <div class="card-members">
+        ${group.members?.map(m => `<span class="member">${m}</span>`).join('') || ''}
+      </div>
+    `;
     dashboard.appendChild(element);
   });
 }
 
+function handlePTT(groupId) {
+  if (connection && connection.readyState === WebSocket.OPEN) {
+    connection.send(JSON.stringify({
+      type: "ptt",
+      group: groupId,
+      userId: settings.userId,
+      timestamp: new Date().toISOString()
+    }));
+  }
+}
+
+function showMessageForm(groupId) {
+  const message = prompt(`Введите сообщение для группы ${groupId}:`);
+  if (message && connection && connection.readyState === WebSocket.OPEN) {
+    connection.send(JSON.stringify({
+      type: "message",
+      groupId,
+      userId: settings.userId,
+      message: message,
+      timestamp: new Date().toISOString()
+    }));
+  }
+}
+
+function toggleSound(button, groupId) {
+  button.classList.toggle("muted");
+  const icon = button.querySelector("i");
+  icon.classList.toggle("fa-volume-up");
+  icon.classList.toggle("fa-volume-mute");
+}
+
+// Ошибки
+function showErrorModal(message) {
+  const errorModal = document.createElement('div');
+  errorModal.className = 'error-modal';
+  errorModal.innerHTML = `
+    <div class="error-content">
+      <h3>Ошибка!</h3>
+      <p>${message}</p>
+      <button onclick="this.parentElement.parentElement.remove()">OK</button>
+    </div>
+  `;
+  document.body.appendChild(errorModal);
+}
+
+function showSystemMessage(message) {
+  const systemMessage = document.createElement('div');
+  systemMessage.className = 'system-message';
+  systemMessage.textContent = message;
+  document.body.appendChild(systemMessage);
+  setTimeout(() => systemMessage.remove(), 3000);
+}
+
 // Переключение вида
 function toggleView() {
+  isMapView = !isMapView;
+  
   const mapElement = document.getElementById("map");
   const dashboard = document.getElementById("dashboard");
   const toggleBtn = document.getElementById("toggleView");
 
-  isMapView = !isMapView;
-  mapElement.style.display = isMapView ? "block" : "none";
-  dashboard.style.display = isMapView ? "none" : "grid";
-  toggleBtn.textContent = isMapView ? "Показать панель" : "Показать карту";
+  if (mapElement) mapElement.style.display = isMapView ? "block" : "none";
+  if (dashboard) dashboard.style.display = isMapView ? "none" : "grid";
+  if (toggleBtn) toggleBtn.textContent = isMapView ? "Панель управления" : "Карта";
 
-  if (isMapView && map) setTimeout(() => map.invalidateSize(), 100);
+  if (isMapView && map) {
+    setTimeout(() => map.invalidateSize(), 100);
+  }
+}
+
+// Загрузка начальных данных
+async function loadInitialData() {
+  await Promise.all([
+    loadAbonents(),
+    loadGroups()
+  ]);
 }
 
 // Инициализация при загрузке
 window.onload = async () => {
+  // Проверка элементов
+  const requiredElements = [
+    "connectBtn", "settingsBtn", "saveSettings", "addAbonent",
+    "saveAbonent", "toggleView", "overlay", "themeToggle",
+    "serverIp", "serverPort", "dispatcher"
+  ];
+  
+  requiredElements.forEach(id => {
+    if (!document.getElementById(id)) {
+      console.warn(`Элемент с ID ${id} не найден`);
+    }
+  });
+
+  // Инициализация
   initTheme();
   initMap();
   setInterval(updateDateTime, 1000);
   updateDateTime();
 
-  // Загрузка настроек
+  // Загрузка сохраненных настроек
   const savedSettings = localStorage.getItem("bsuSettings");
   if (savedSettings) {
-    settings = JSON.parse(savedSettings);
-    document.getElementById("serverIp").value = settings.ip;
-    document.getElementById("serverPort").value = settings.port;
-    document.getElementById("dispatcher").value = settings.dispatcher;
+    try {
+      const saved = JSON.parse(savedSettings);
+      settings = { ...settings, ...saved };
+      
+      document.getElementById("serverIp").value = settings.ip;
+      document.getElementById("serverPort").value = settings.wsPort;
+      document.getElementById("dispatcher").value = settings.dispatcher;
+    } catch (error) {
+      console.error("Ошибка загрузки настроек:", error);
+    }
   }
 
-  await loadAbonents();
-  await loadGroups();
-
-  // Обработчики событий
-  document.getElementById("connectBtn").onclick = connectToServer;
-  document.getElementById("settingsBtn").onclick = () => showModal("settingsModal");
-  document.getElementById("addAbonent").onclick = () => showModal("abonentModal");
-  document.getElementById("toggleView").onclick = toggleView;
-  document.getElementById("overlay").onclick = hideModals;
-  document.getElementById("themeToggle").addEventListener("click", toggleTheme);
+  // Назначение обработчиков
+  document.getElementById("connectBtn")?.addEventListener("click", connectToServer);
+  document.getElementById("settingsBtn")?.addEventListener("click", () => showModal("settingsModal"));
+  document.getElementById("saveSettings")?.addEventListener("click", saveSettings);
+  document.getElementById("addAbonent")?.addEventListener("click", () => showModal("abonentModal"));
+  document.getElementById("saveAbonent")?.addEventListener("click", saveAbonent);
+  document.getElementById("toggleView")?.addEventListener("click", toggleView);
+  document.getElementById("overlay")?.addEventListener("click", hideModals);
+  document.getElementById("themeToggle")?.addEventListener("click", toggleTheme);
 
   updateNetworkInfo();
+  
+  // Автоподключение
+  connectToServer();
 };
+
+// Глобальные функции
+window.handlePTT = handlePTT;
+window.showMessageForm = showMessageForm;
+window.toggleSound = toggleSound;
