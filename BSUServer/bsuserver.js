@@ -15,7 +15,15 @@ function initData() {
     
     if (!fs.existsSync(DATA_FILE)) {
         fs.writeFileSync(DATA_FILE, JSON.stringify({
-            retranslators: [],
+            retranslators: [
+                {
+                    id: "1",
+                    ip: "192.168.1.100",
+                    name: "Основной ретранслятор",
+                    location: "Центральный офис",
+                    status: "active"
+                }
+            ],
             dispatchers: [],
             radioStations: []
         }, null, 2));
@@ -23,7 +31,12 @@ function initData() {
 }
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:5025', 'http://10.21.10.146:5025'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true
+}));
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -34,11 +47,11 @@ app.get('/api/bsu/data', (req, res) => {
         const data = JSON.parse(fs.readFileSync(DATA_FILE));
         res.json(data);
     } catch (error) {
-        res.status(500).json({ error: 'Ошибка чтения данных' });
+        console.error('BSU data read error:', error);
+        res.status(500).json({ error: 'Ошибка чтения данных BSU' });
     }
 });
 
-// Получение конфигурации по IP
 app.get('/api/bsu/retranslators/:ip/config', (req, res) => {
     const ip = req.params.ip;
     
@@ -52,7 +65,8 @@ app.get('/api/bsu/retranslators/:ip/config', (req, res) => {
             slot2: { type: 'data', group: 'Группа 2', frequency: '435.625 МГц' }
         },
         power: '10W',
-        firmware: 'v2.5.3'
+        firmware: 'v2.5.3',
+        lastSeen: new Date().toISOString()
     };
     
     res.json(mockConfig);
@@ -67,13 +81,15 @@ function handlePostRequest(entity) {
             const newItem = {
                 id: Date.now().toString(),
                 ...req.body,
-                status: 'active'
+                status: 'active',
+                createdAt: new Date().toISOString()
             };
             data[`${entity}s`].push(newItem);
             fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
             res.status(201).json(newItem);
         } catch (error) {
-            res.status(500).json({ error: 'Ошибка сохранения данных' });
+            console.error(`BSU ${entity} create error:`, error);
+            res.status(500).json({ error: `Ошибка сохранения ${entity}` });
         }
     };
 }
@@ -83,7 +99,8 @@ app.post('/api/bsu/retranslators', handlePostRequest('retranslator'));
 app.post('/api/bsu/dispatchers', handlePostRequest('dispatcher'));
 app.post('/api/bsu/radioStations', handlePostRequest('radioStation'));
 
+// Запуск сервера
 app.listen(PORT, () => {
-    console.log(`Сервер запущен на http://localhost:${PORT}`);
+    console.log(`BSU сервер запущен на http://localhost:${PORT}`);
     initData();
 });

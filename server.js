@@ -4,19 +4,21 @@ const path = require('path');
 const cors = require('cors');
 const multer = require('multer');
 const WebSocket = require('ws');
+const axios = require('axios');
 
 // Настройка загрузки файлов
-const upload = multer({ 
+const upload = multer({
   dest: 'uploads/',
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB
+  limits: { fileSize: 5 * 1024 * 1024 }
 });
 
 const app = express();
 const PORT = 5025;
-const HOST = '0.0.0.0'; // Слушаем все интерфейсы
+const HOST = '0.0.0.0';
 const WS_PORT = 2323;
 const DATA_FILE = path.join(__dirname, 'data.json');
-const ENCRYPTION_KEY = 'my-secret-key-' + Math.random().toString(36).substring(2);
+const ENCRYPTION_KEY = 'secure-key-12345';
+const BSU_SERVER_URL = 'http://localhost:5001';
 
 // Создаем необходимые директории
 if (!fs.existsSync('uploads')) {
@@ -42,12 +44,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// Аутентификация
+// Упрощенная аутентификация
 const authenticate = (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  if (!authHeader || authHeader !== `Bearer ${ENCRYPTION_KEY}`) {
-    console.warn('Unauthorized access attempt');
-    return res.status(401).json({ error: 'Unauthorized' });
+  if (!authHeader) {
+    console.warn('No authorization header');
+    return res.status(401).json({ error: 'Authorization header required' });
   }
   next();
 };
@@ -89,16 +91,53 @@ app.get('/healthcheck', (req, res) => {
     server: "BSU Server",
     version: "1.0",
     time: new Date().toISOString(),
-    websocketPort: WS_PORT
+    websocketPort: WS_PORT,
+    bsuServerUrl: BSU_SERVER_URL
   });
 });
 
-app.get('/api/encryptionKey', authenticate, (req, res) => {
+app.get('/api/encryptionKey', (req, res) => {
   res.json({ 
     key: ENCRYPTION_KEY,
     expiresIn: "1h",
     serverTime: new Date().toISOString()
   });
+});
+
+// BSU Server Integration
+app.get('/api/bsu/data', async (req, res) => {
+  try {
+    const response = await axios.get(`${BSU_SERVER_URL}/api/bsu/data`);
+    res.json(response.data);
+  } catch (error) {
+    console.error('BSU data error:', error.message);
+    res.status(500).json({ error: "Failed to get BSU data" });
+  }
+});
+
+app.get('/api/bsu/retranslators/:ip/config', async (req, res) => {
+  try {
+    const response = await axios.get(
+      `${BSU_SERVER_URL}/api/bsu/retranslators/${req.params.ip}/config`
+    );
+    res.json(response.data);
+  } catch (error) {
+    console.error('BSU config error:', error.message);
+    res.status(500).json({ error: "Failed to get retranslator config" });
+  }
+});
+
+app.post('/api/bsu/retranslators', async (req, res) => {
+  try {
+    const response = await axios.post(
+      `${BSU_SERVER_URL}/api/bsu/retranslators`,
+      req.body
+    );
+    res.status(201).json(response.data);
+  } catch (error) {
+    console.error('BSU create error:', error.message);
+    res.status(500).json({ error: "Failed to create retranslator" });
+  }
 });
 
 // Группы
@@ -201,16 +240,16 @@ app.post('/api/abonents', upload.single('icon'), (req, res) => {
 // WebSocket Server
 const wss = new WebSocket.Server({
   port: WS_PORT,
-  perMessageDeflate: false,
-  verifyClient: (info, done) => {
-    const allowedOrigins = ['http://localhost:5025', 'http://10.21.10.146:5025'];
-    if (allowedOrigins.includes(info.origin)) {
-      return done(true);
-    }
-    console.warn(`Отклонено подключение с origin: ${info.origin}`);
-    return done(false, 403, 'Forbidden');
-  }
+  perMessageDeflate: false
 });
+
+function broadcastToClients(message) {
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify(message));
+    }
+  });
+}
 
 // Функция для широковещательной рассылки
 function broadcastToClients(message) {
@@ -339,8 +378,10 @@ function updateUserStatus(userId, isOnline) {
 }
 
 // Запуск HTTP сервера
-const httpServer = app.listen(PORT, HOST, () => {
+app.listen(PORT, HOST, () => {
   console.log(`HTTP сервер запущен на http://${HOST}:${PORT}`);
+  console.log(`WebSocket сервер запущен на ws://${HOST}:${WS_PORT}`);
+  console.log(`Интеграция с BSU сервером: ${BSU_SERVER_URL}`);
 });
 
 // Обработка ошибок
