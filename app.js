@@ -1,15 +1,16 @@
 let map;
 let connection;
 let settings = {
-  ip: "10.21.50.6",
-  httpPort: 5025,
-  wsPort: 2323,
-  dispatcher: 16,
-  encryptionKey: "defaultKey",
-  userId: "user_" + Math.random().toString(36).substring(2, 9)
+    ip: "localhost",
+    httpPort: 5025,
+    wsPort: 2323,
+    encryptionKey: "secure-key-12345",
+    userId: "user_" + Math.random().toString(36).substring(2, 9)
 };
 
 const API_URL = `http://${settings.ip}:${settings.httpPort}/api`;
+let bsuData = null;
+
 let isMapView = true;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
@@ -532,10 +533,22 @@ function toggleView() {
   
   const mapElement = document.getElementById("map");
   const dashboard = document.getElementById("dashboard");
+  const bsuContainer = document.getElementById("bsuContainer");
   const toggleBtn = document.getElementById("toggleView");
 
   if (mapElement) mapElement.style.display = isMapView ? "block" : "none";
-  if (dashboard) dashboard.style.display = isMapView ? "none" : "grid";
+  if (dashboard) dashboard.style.display = "none";
+  if (bsuContainer) bsuContainer.style.display = "none";
+  
+  if (!isMapView) {
+    const activeTab = document.querySelector("nav button.active");
+    if (activeTab && activeTab.id === "bsuBtn") {
+      bsuContainer.style.display = "block";
+    } else {
+      dashboard.style.display = "grid";
+    }
+  }
+  
   if (toggleBtn) toggleBtn.textContent = isMapView ? "Панель управления" : "Карта";
 
   if (isMapView && map) {
@@ -551,13 +564,116 @@ async function loadInitialData() {
   ]);
 }
 
+// BSU Functions
+async function loadBsuData() {
+  try {
+      const data = await fetchData("bsu/data");
+      bsuData = data;
+      updateBsuUI();
+      return data;
+  } catch (error) {
+      console.error("BSU data error:", error);
+      showErrorModal("Ошибка загрузки данных BSU");
+      return null;
+  }
+}
+
+function updateBsuUI() {
+  const container = document.getElementById("bsuContainer");
+  if (!container || !bsuData) return;
+  
+  container.innerHTML = `
+      <h3>Ретрансляторы BSU</h3>
+      <div class="bsu-list">
+          ${bsuData.retranslators.map(retrans => `
+              <div class="bsu-item">
+                  <div>IP: ${retrans.ip}</div>
+                  <div>Название: ${retrans.name}</div>
+                  <div>Статус: <span class="status-${retrans.status}">${retrans.status}</span></div>
+                  <button onclick="showRetranslatorConfig('${retrans.ip}')">Конфигурация</button>
+              </div>
+          `).join('')}
+      </div>
+      <button onclick="showAddRetranslatorForm()">Добавить ретранслятор</button>
+  `;
+}
+
+async function showRetranslatorConfig(ip) {
+  try {
+      const config = await fetchData(`bsu/retranslators/${ip}/config`);
+      showModalWithData(`Конфигурация ${ip}`, config);
+  } catch (error) {
+      console.error("Config error:", error);
+      showErrorModal("Ошибка получения конфигурации");
+  }
+}
+
+function showModalWithData(title, data) {
+  const modalContent = `
+      <h3>${title}</h3>
+      <pre>${JSON.stringify(data, null, 2)}</pre>
+      <button onclick="hideModals()">Закрыть</button>
+  `;
+  
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.innerHTML = `
+      <div class="modal-content">
+          ${modalContent}
+      </div>
+  `;
+  
+  document.body.appendChild(modal);
+  showModal(modal.id);
+}
+
+function showAddRetranslatorForm() {
+  const modalContent = `
+      <h3>Добавить ретранслятор</h3>
+      <form onsubmit="addRetranslator(event)">
+          <input type="text" id="retransIp" placeholder="IP адрес" required>
+          <input type="text" id="retransName" placeholder="Название" required>
+          <input type="text" id="retransLocation" placeholder="Местоположение">
+          <button type="submit">Добавить</button>
+      </form>
+  `;
+  
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.innerHTML = `
+      <div class="modal-content">
+          ${modalContent}
+      </div>
+  `;
+  
+  document.body.appendChild(modal);
+  showModal(modal.id);
+}
+
+async function addRetranslator(event) {
+  event.preventDefault();
+  const ip = document.getElementById("retransIp").value;
+  const name = document.getElementById("retransName").value;
+  const location = document.getElementById("retransLocation").value;
+  
+  try {
+      await saveData("bsu/retranslators", { ip, name, location });
+      hideModals();
+      await loadBsuData();
+      showSystemMessage("Ретранслятор успешно добавлен");
+  } catch (error) {
+      console.error("Add retranslator error:", error);
+      showErrorModal("Ошибка добавления ретранслятора");
+  }
+}
+
 // Инициализация при загрузке
 window.onload = async () => {
   // Проверка элементов
   const requiredElements = [
     "connectBtn", "settingsBtn", "saveSettings", "addAbonent",
     "saveAbonent", "toggleView", "overlay", "themeToggle",
-    "serverIp", "serverPort", "dispatcher"
+    "serverIp", "serverPort", "dispatcher", "bsuBtn"
   ];
   
   requiredElements.forEach(id => {
@@ -581,7 +697,7 @@ window.onload = async () => {
       
       document.getElementById("serverIp").value = settings.ip;
       document.getElementById("serverPort").value = settings.wsPort;
-      document.getElementById("dispatcher").value = settings.dispatcher;
+      document.getElementById("dispatcher").value = settings.dispatcher || "";
     } catch (error) {
       console.error("Ошибка загрузки настроек:", error);
     }
@@ -596,6 +712,17 @@ window.onload = async () => {
   document.getElementById("toggleView")?.addEventListener("click", toggleView);
   document.getElementById("overlay")?.addEventListener("click", hideModals);
   document.getElementById("themeToggle")?.addEventListener("click", toggleTheme);
+  document.getElementById("bsuBtn")?.addEventListener("click", async () => {
+    await loadBsuData();
+    const bsuContainer = document.getElementById("bsuContainer");
+    const dashboard = document.getElementById("dashboard");
+    if (bsuContainer && dashboard) {
+      bsuContainer.style.display = "block";
+      dashboard.style.display = "none";
+      document.querySelector("nav button.active")?.classList.remove("active");
+      document.getElementById("bsuBtn").classList.add("active");
+    }
+  });
 
   updateNetworkInfo();
   
@@ -604,6 +731,10 @@ window.onload = async () => {
 };
 
 // Глобальные функции
+window.showRetranslatorConfig = showRetranslatorConfig;
+window.addRetranslator = addRetranslator;
 window.handlePTT = handlePTT;
 window.showMessageForm = showMessageForm;
 window.toggleSound = toggleSound;
+window.showModal = showModal;
+window.hideModals = hideModals;
