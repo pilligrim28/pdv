@@ -1,4 +1,3 @@
-// app.js
 let map;
 let connection;
 let settings = {
@@ -15,12 +14,15 @@ let isMapView = true;
 function initTheme() {
   const savedTheme = localStorage.getItem("theme") || "light";
   document.body.setAttribute("data-theme", savedTheme);
+  updateThemeIcon(savedTheme);
+}
+
+function updateThemeIcon(theme) {
   const themeToggle = document.getElementById("themeToggle");
   if (themeToggle) {
-    themeToggle.innerHTML =
-      savedTheme === "dark"
-        ? '<i class="fas fa-moon"></i>'
-        : '<i class="fas fa-sun"></i>';
+    themeToggle.innerHTML = theme === "dark" 
+      ? '<i class="fas fa-sun"></i>' 
+      : '<i class="fas fa-moon"></i>';
   }
 }
 
@@ -28,30 +30,23 @@ function initTheme() {
 function toggleTheme() {
   const body = document.body;
   const isDark = body.getAttribute("data-theme") === "dark";
-  body.setAttribute("data-theme", isDark ? "light" : "dark");
-  const themeToggle = document.getElementById("themeToggle");
-  if (themeToggle) {
-    themeToggle.innerHTML = isDark
-      ? '<i class="fas fa-sun"></i>'
-      : '<i class="fas fa-moon"></i>';
-  }
-  localStorage.setItem("theme", isDark ? "light" : "dark");
+  const newTheme = isDark ? "light" : "dark";
+  
+  body.setAttribute("data-theme", newTheme);
+  updateThemeIcon(newTheme);
+  localStorage.setItem("theme", newTheme);
 }
 
 // Обновление времени и даты
 function updateDateTime() {
   const now = new Date();
-  document.getElementById("currentTime").textContent =
-    now.toLocaleTimeString("ru-RU");
-  document.getElementById("currentDate").textContent = now.toLocaleDateString(
-    "ru-RU",
-    {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    }
-  );
+  document.getElementById("currentTime").textContent = now.toLocaleTimeString("ru-RU");
+  document.getElementById("currentDate").textContent = now.toLocaleDateString("ru-RU", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric"
+  });
 }
 
 // Показать/скрыть модальные окна
@@ -322,15 +317,11 @@ window.onload = async () => {
 
   // Обработчики событий
   document.getElementById("connectBtn").onclick = connectToServer;
-  document.getElementById("settingsBtn").onclick = () =>
-    showModal("settingsModal");
-  document.getElementById("addAbonent").onclick = () =>
-    showModal("abonentModal");
+  document.getElementById("settingsBtn").onclick = () => showModal("settingsModal");
+  document.getElementById("addAbonent").onclick = () => showModal("abonentModal");
   document.getElementById("toggleView").onclick = toggleView;
   document.getElementById("overlay").onclick = hideModals;
-
-  const themeToggle = document.getElementById("themeToggle");
-  if (themeToggle) themeToggle.addEventListener("click", toggleTheme);
+  document.getElementById("themeToggle").addEventListener("click", toggleTheme);
 
   updateNetworkInfo();
 };

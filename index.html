@@ -1,123 +1,105 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="ru">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Диспетчерский пульт БСУ</title>
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
-    />
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
-    />
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
     <div class="overlay" id="overlay"></div>
-
+    
     <div class="header">
-      <div class="logo">
-        <img src="img/NEON_dark.png" alt="Логотип системы" />
-      </div>
-
-      <div class="header-center">
-        <div class="time-block">
-          <div id="currentTime" class="time"></div>
-          <div id="currentDate" class="date"></div>
+        <div class="logo">
+            <img src="img/NEON_dark.png" alt="Логотип системы">
         </div>
-      </div>
-      <div class="network-info">
-        <div>
-          Статус:
-          <span id="connectionStatus" class="status-disconnected"
-            >Отключено</span
-          >
+        
+        <div class="header-center">
+            <div class="time-block">
+                <div id="currentTime" class="time"></div>
+                <div id="currentDate" class="date"></div>
+            </div>
+            <div class="network-info">
+                <div>Статус: <span id="connectionStatus" class="status-disconnected">Отключено</span></div>
+                <div>Локальный IP: <span id="localIP">-</span></div>
+                <div>Удаленный IP: <span id="remoteIP">-</span></div>
+            </div>
         </div>
-        <div>Локальный IP: <span id="localIP">-</span></div>
-        <div>Удаленный IP: <span id="remoteIP">-</span></div>
-      </div>
-
-      <div class="header-controls">
-        <button class="theme-toggle" id="themeToggle">
-          <i class="fas fa-sun"></i>
-        </button>
-<button id="toggleView">Показать панель</button>
-        <button id="connectBtn">Подключиться</button>
-        <button id="settingsBtn">Настройки</button>
-      </div>
+        
+        <div class="header-controls">
+            <button id="toggleView">Показать панель</button>
+            <button id="connectBtn">Подключиться</button>
+            <button id="settingsBtn">Настройки</button>
+            <button class="theme-toggle" id="themeToggle">
+                <i class="fas fa-sun"></i>
+            </button>
+        </div>
     </div>
 
     <div class="main-container">
-      <div class="sidebar">
-        <button id="addAbonent">Добавить абонента</button>
-        <ul class="tree-view" id="abonentTree"></ul>
-      </div>
+        <div class="sidebar">
+            <button id="addAbonent">Добавить абонента</button>
+            <ul class="tree-view" id="abonentTree"></ul>
+        </div>
 
-      <div class="content-area">
-        <div id="map" class="map-container"></div>
-        <div id="dashboard" class="dashboard" style="display: none"></div>
-      </div>
+        <div class="content-area">
+            <div id="map" class="map-container"></div>
+            <div id="dashboard" class="dashboard" style="display: none;"></div>
+        </div>
     </div>
 
     <!-- Модальные окна -->
     <div id="settingsModal" class="modal">
-      <div class="modal-content">
-        <h3>Настройки подключения</h3>
-        <div class="input-group">
-          <label for="serverIp">IP сервера:</label>
-          <input type="text" id="serverIp" placeholder="10.21.50.6" required />
+        <div class="modal-content">
+            <h3>Настройки подключения</h3>
+            <div class="input-group">
+                <label for="serverIp">IP сервера:</label>
+                <input type="text" id="serverIp" placeholder="10.21.50.6" required>
+            </div>
+            <div class="input-group">
+                <label for="serverPort">Порт:</label>
+                <input type="number" id="serverPort" placeholder="2323" required>
+            </div>
+            <div class="input-group">
+                <label for="dispatcher">ID диспетчера:</label>
+                <input type="number" id="dispatcher" placeholder="16" required>
+            </div>
+            <div class="modal-buttons">
+                <button onclick="saveSettings()">Сохранить</button>
+                <button onclick="hideModals()">Отмена</button>
+            </div>
         </div>
-        <div class="input-group">
-          <label for="serverPort">Порт:</label>
-          <input type="number" id="serverPort" placeholder="2323" required />
-        </div>
-        <div class="input-group">
-          <label for="dispatcher">ID диспетчера:</label>
-          <input type="number" id="dispatcher" placeholder="16" required />
-        </div>
-        <div class="modal-buttons">
-          <button onclick="saveSettings()">Сохранить</button>
-          <button onclick="hideModals()">Отмена</button>
-        </div>
-      </div>
     </div>
-
+    
     <div id="abonentModal" class="modal">
-      <div class="modal-content">
-        <h3>Добавить абонента</h3>
-        <div class="input-group">
-          <label for="abonentId">ID абонента:</label>
-          <input
-            type="text"
-            id="abonentId"
-            inputmode="numeric"
-            pattern="\d*"
-            required
-          />
+        <div class="modal-content">
+            <h3>Добавить абонента</h3>
+            <div class="input-group">
+                <label for="abonentId">ID абонента:</label>
+                <input type="text" id="abonentId" inputmode="numeric" pattern="\d*" required>
+            </div>
+            <div class="input-group">
+                <label for="abonentName">Название:</label>
+                <input type="text" id="abonentName" required>
+            </div>
+            <div class="input-group">
+                <label for="abonentColor">Цвет:</label>
+                <input type="color" id="abonentColor" value="#3366ff">
+            </div>
+            <div class="input-group">
+                <label for="abonentIcon">Иконка:</label>
+                <input type="file" id="abonentIcon" accept="image/*">
+            </div>
+            <div class="modal-buttons">
+                <button onclick="saveAbonent()">Сохранить</button>
+                <button onclick="hideModals()">Отмена</button>
+            </div>
         </div>
-        <div class="input-group">
-          <label for="abonentName">Название:</label>
-          <input type="text" id="abonentName" required />
-        </div>
-        <div class="input-group">
-          <label for="abonentColor">Цвет:</label>
-          <input type="color" id="abonentColor" value="#3366ff" />
-        </div>
-        <div class="input-group">
-          <label for="abonentIcon">Иконка:</label>
-          <input type="file" id="abonentIcon" accept="image/*" />
-        </div>
-        <div class="modal-buttons">
-          <button onclick="saveAbonent()">Сохранить</button>
-          <button onclick="hideModals()">Отмена</button>
-        </div>
-      </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script src="app.js"></script>
-  </body>
+</body>
 </html>
