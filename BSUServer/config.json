@@ -1,0 +1,56 @@
+{
+	"device_type": 0,
+	"dr600_settings":
+	{
+		"self_id": 111,
+		"self_name": "test device",
+		"self_ip": "192.168.1.68",
+		"sip_port": 5060,
+		"sip_server_name": "",
+		"sip_local_name": "1000",
+		"rtp_start_port": 8000,
+		"server_ip": "192.168.1.68",
+		"server_port": 19888,
+		"login": "1000",
+		"password": "111111",
+		"min_delay_s": 5,
+		"max_delay_s": 15,
+		"test_cases":[
+			{
+				"source_id": 1101,
+				"group_id": 901,
+				"slot": 1,
+				"file_num": 1
+			},
+			{
+				"source_id": 1102,
+				"group_id": 901,
+				"slot": 1,
+				"file_num": 2
+			},
+			{
+				"source_id": 1103,
+				"group_id": 901,
+				"slot": 1,
+				"file_num": 3
+			},
+			{
+				"source_id": 1104,
+				"group_id": 202,
+				"slot": 2,
+				"file_num": 4
+				}
+		],
+		"Radios":[
+			1101,
+			1102,
+			1103,
+			1104
+		],
+		"latitude": 5586800,
+		"longitude": 2822300,
+		"gps_offset": 1000,
+		"calls_enable": true,
+		"gps_enable": true
+	}
+}
