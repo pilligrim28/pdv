@@ -18,8 +18,8 @@
     }
   ],
   "settings": {
-    "ip": "10.21.50.2",
-    "port": 2323,
+    "ip": "127.0.0.1",
+    "port": 5001,
     "dispatcher": 1,
     "encryptionKey": ""
   },

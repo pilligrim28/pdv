@@ -1,8 +1,8 @@
 let map;
 let connection;
 let settings = {
-  ip: "10.21.50.6",
-  httpPort: 5025,
+  ip: "10.21.50.5",
+  httpPort: 2323,
   wsPort: 2323,
   dispatcher: 16,
   encryptionKey: "defaultKey",
