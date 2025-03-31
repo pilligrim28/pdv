@@ -2,9 +2,9 @@ let map;
 let connection;
 let settings = {
   ip: "10.21.50.5",
-  httpPort: 2323,
+  httpPort: 5025,
   wsPort: 2323,
-  dispatcher: 16,
+  dispatcher: 1,
   encryptionKey: "defaultKey",
   userId: "user_" + Math.random().toString(36).substring(2, 9)
 };

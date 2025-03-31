@@ -27,7 +27,7 @@ if (!fs.existsSync('uploads')) {
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:5025', 'http://10.21.10.146:5025'],
+  origin: ['http://localhost:5025', 'http://10.21.50.5:5025'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -221,7 +221,23 @@ app.post('/api/abonents', upload.single('icon'), (req, res) => {
       online: false,
       createdAt: new Date().toISOString()
     };
-    
+    app.post('/api/settings', authenticate, (req, res) => {
+      try {
+        const { ip, port, dispatcher } = req.body;
+        const data = loadData();
+        
+        data.settings = {
+          ip: ip || data.settings.ip,
+          port: port || data.settings.port,
+          dispatcher: dispatcher || data.settings.dispatcher
+        };
+        
+        saveData(data);
+        res.json({ success: true });
+      } catch (error) {
+        res.status(500).json({ error: "Failed to save settings" });
+      }
+    });
     data.abonents.push(abonent);
     saveData(data);
     
